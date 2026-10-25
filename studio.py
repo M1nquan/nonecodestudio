@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -8,7 +9,7 @@ import urllib.error
 import urllib.request
 from PyQt6.QtCore import (
     Qt, QProcess, QProcessEnvironment, QDir, QUrl, QSettings,
-    QPropertyAnimation, QEasingCurve, QSize, QPoint, QThread, pyqtSignal
+    QPropertyAnimation, QEasingCurve, QSize, QPoint, QThread, pyqtSignal, QTimer
 )
 from PyQt6.QtGui import (
     QAction, QDesktopServices, QIcon, QKeySequence, QShortcut,
@@ -27,6 +28,78 @@ from workers import venv_python, venv_root_of, find_venvs
 from editor import CodeEditor
 from widgets import Overlay, Toast
 from dialogs import CloneDialog, VenvDialog
+
+
+class CheckUpdateThread(QThread):
+    """Luồng ngầm kiểm tra bản cập nhật mới trên GitHub mà không chặn giao diện chính."""
+    update_found = pyqtSignal(str, str, str)  # (latest_tag, changelog, download_url)
+
+    def __init__(self, owner, repo, current_ver):
+        super().__init__()
+        self.owner = owner
+        self.repo = repo
+        self.current_ver = current_ver
+
+    @staticmethod
+    def parse_version_tuple(tag_str):
+        nums = re.findall(r'\d+', tag_str)
+        return tuple(map(int, nums)) if nums else (0,)
+
+    def run(self):
+        api_url = f"https://api.github.com/repos/{self.owner}/{self.repo}/releases"
+        releases = []
+        try:
+            req = urllib.request.Request(
+                api_url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "application/vnd.github.v3+json"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                releases = json.loads(resp.read().decode("utf-8"))
+        except Exception:
+            # Fallback nếu API bị chặn rate-limit: đọc redirect
+            try:
+                web_url = f"https://github.com/{self.owner}/{self.repo}/releases/latest"
+                wreq = urllib.request.Request(
+                    web_url,
+                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"}
+                )
+                with urllib.request.urlopen(wreq, timeout=6) as wresp:
+                    furl = wresp.geturl()
+                if not (furl.endswith("/releases") or furl.endswith("/releases/")):
+                    tag = furl.rstrip("/").split("/")[-1]
+                    releases = [{"tag_name": tag, "body": "Bản phát hành GitHub mới nhất.", "assets": []}]
+            except Exception:
+                return
+
+        if not releases or not isinstance(releases, list):
+            return
+
+        target_release = None
+        max_ver = self.parse_version_tuple(self.current_ver)
+
+        for rel in releases:
+            tag_name = rel.get("tag_name", "").strip()
+            v_tuple = self.parse_version_tuple(tag_name)
+            if v_tuple > max_ver:
+                max_ver = v_tuple
+                target_release = rel
+
+        if target_release:
+            latest_tag = target_release.get("tag_name", "").strip()
+            changelog = target_release.get("body", "Bản phát hành cập nhật chính thức.")
+            download_url = None
+            for asset in target_release.get("assets", []):
+                name = asset.get("name", "").lower()
+                if name.endswith(".exe"):
+                    download_url = asset.get("browser_download_url")
+                    break
+            if not download_url:
+                download_url = f"https://github.com/{self.owner}/{self.repo}/releases/download/{latest_tag}/nonecodestudio.exe"
+
+            self.update_found.emit(latest_tag, changelog, download_url)
 
 
 class DownloadWorker(QThread):
@@ -49,7 +122,7 @@ class DownloadWorker(QThread):
                 self.url,
                 headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"}
             )
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=40) as resp:
                 total_size = resp.info().get("Content-Length")
                 total_size = int(total_size) if total_size else 0
                 downloaded = 0
@@ -118,6 +191,9 @@ class NoneCodeStudio(QMainWindow):
         self.set_workspace(self.workspace)
         self.new_file()
 
+        # Bật luồng kiểm tra cập nhật ngầm sau khi app khởi động xong 3 giây
+        QTimer.singleShot(3000, self.start_silent_update_check)
+
     def create_layout(self):
         central = QWidget()
         central.setObjectName("central")
@@ -126,7 +202,7 @@ class NoneCodeStudio(QMainWindow):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # 1. Title bar
+        # 1. Custom Title Bar
         self.title_bar = QWidget()
         self.title_bar.setObjectName("customTitleBar")
         self.title_bar.setFixedHeight(32)
@@ -326,6 +402,15 @@ class NoneCodeStudio(QMainWindow):
         sb.setSizeGripEnabled(False)
         self.lbl_status = QLabel("Ready")
         self.lbl_run = QLabel("")
+        
+        # Nút / Pill thông báo bản cập nhật trên Status Bar
+        self.lbl_update_badge = QLabel("")
+        self.lbl_update_badge.setObjectName("statusPill")
+        self.lbl_update_badge.setStyleSheet(f"background: {T['OK']}; color: #000000; font-weight: 700; cursor: pointer;")
+        self.lbl_update_badge.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.lbl_update_badge.mousePressEvent = lambda _e: self.check_github_update()
+        self.lbl_update_badge.hide()
+
         self.lbl_interp = QLabel()
         self.lbl_interp.setObjectName("statusPill")
         self.lbl_lang = QLabel("Plain Text")
@@ -333,6 +418,7 @@ class NoneCodeStudio(QMainWindow):
         self.lbl_enc = QLabel("UTF-8")
         sb.addWidget(self.lbl_status, 1)
         sb.addWidget(self.lbl_run)
+        sb.addPermanentWidget(self.lbl_update_badge)
         sb.addPermanentWidget(self.lbl_interp)
         sb.addPermanentWidget(self.lbl_lang)
         sb.addPermanentWidget(self.lbl_pos)
@@ -393,18 +479,31 @@ class NoneCodeStudio(QMainWindow):
             b.setObjectName("danger")
         return b
 
+    def start_silent_update_check(self):
+        """Khởi động luồng kiểm tra bản mới một cách âm thầm."""
+        self._check_thread = CheckUpdateThread(self.GITHUB_OWNER, self.GITHUB_REPO, VERSION)
+        self._check_thread.update_found.connect(self.on_background_update_detected)
+        self._check_thread.start()
+
+    def on_background_update_detected(self, latest_tag, changelog, download_url):
+        """Khi phát hiện bản mới, bật notification Toast và hiển thị huy hiệu trên StatusBar."""
+        self.lbl_update_badge.setText(f"🚀 Có bản mới: {latest_tag}")
+        self.lbl_update_badge.setToolTip(f"Bấm để cập nhật lên {latest_tag}")
+        self.lbl_update_badge.show()
+
+        # Hiện Toast nhẹ nhàng thông báo có bản cập nhật mới
+        self.toast(f"Phát hiện bản cập nhật mới: {latest_tag}", theme.T["OK"])
+
     def check_github_update(self):
-        """Kiểm tra bản cập nhật: Hỗ trợ GitHub API và tự động Fallback chuyển hướng web."""
+        """Kiểm tra và mở hộp thoại thông báo cập nhật đầy đủ."""
         import json
+        import re
         import urllib.error
         import urllib.request
-        from theme import VERSION
+        from app_theme import VERSION
 
-        api_url = f"https://api.github.com/repos/{self.GITHUB_OWNER}/{self.GITHUB_REPO}/releases/latest"
-        latest_tag = ""
-        changelog = "Bản phát hành cập nhật chính thức trên GitHub."
-        download_url = None
-        is_exe = True
+        api_url = f"https://api.github.com/repos/{self.GITHUB_OWNER}/{self.GITHUB_REPO}/releases"
+        releases = []
 
         try:
             req = urllib.request.Request(
@@ -414,27 +513,21 @@ class NoneCodeStudio(QMainWindow):
                     "Accept": "application/vnd.github.v3+json"
                 }
             )
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                latest_tag = data.get("tag_name", "").strip()
-                changelog = data.get("body", changelog)
-                for asset in data.get("assets", []):
-                    name = asset.get("name", "").lower()
-                    if name.endswith(".exe"):
-                        download_url = asset.get("browser_download_url")
-                        break
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                releases = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             if e.code in (403, 429):
                 try:
                     web_url = f"https://github.com/{self.GITHUB_OWNER}/{self.GITHUB_REPO}/releases/latest"
-                    web_req = urllib.request.Request(
+                    wreq = urllib.request.Request(
                         web_url,
                         headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"}
                     )
-                    with urllib.request.urlopen(web_req, timeout=6) as web_resp:
-                        final_url = web_resp.geturl()
-                    if not (final_url.endswith("/releases") or final_url.endswith("/releases/")):
-                        latest_tag = final_url.rstrip("/").split("/")[-1]
+                    with urllib.request.urlopen(wreq, timeout=6) as wresp:
+                        furl = wresp.geturl()
+                    if not (furl.endswith("/releases") or furl.endswith("/releases/")):
+                        tag = furl.rstrip("/").split("/")[-1]
+                        releases = [{"tag_name": tag, "body": "Bản phát hành cập nhật chính thức trên GitHub.", "assets": []}]
                 except Exception:
                     self.toast("Không thể lấy dữ liệu cập nhật", theme.T["ERR"])
                     return
@@ -448,20 +541,51 @@ class NoneCodeStudio(QMainWindow):
             self.toast("Không thể kết nối tới GitHub", theme.T["ERR"])
             return
 
-        if not latest_tag:
+        if not releases or not isinstance(releases, list):
             self.toast("Không tìm thấy thông tin bản cập nhật", theme.T["WARN"])
             return
+
+        def parse_ver(tag_str):
+            nums = re.findall(r'\d+', tag_str)
+            return tuple(map(int, nums)) if nums else (0,)
+
+        target_release = None
+        max_ver = parse_ver(VERSION)
+
+        for rel in releases:
+            tname = rel.get("tag_name", "").strip()
+            v_tuple = parse_ver(tname)
+            if v_tuple > max_ver:
+                max_ver = v_tuple
+                target_release = rel
+
+        if not target_release:
+            self.toast("Bạn đang sử dụng phiên bản mới nhất!", theme.T["OK"])
+            return
+
+        latest_tag = target_release.get("tag_name", "").strip()
+        changelog = target_release.get("body", "Bản cập nhật tối ưu hóa hiệu năng và sửa lỗi.")
+
+        download_url = None
+        for asset in target_release.get("assets", []):
+            name = asset.get("name", "").lower()
+            if name.endswith(".exe"):
+                download_url = asset.get("browser_download_url")
+                break
 
         if not download_url:
             download_url = f"https://github.com/{self.GITHUB_OWNER}/{self.GITHUB_REPO}/releases/download/{latest_tag}/nonecodestudio.exe"
 
+        # Hộp thoại thông báo đầy đủ
         res = self.blurred(
             QMessageBox.question,
             self,
-            "Cập nhật hệ thống",
-            f"Bản phát hành: {latest_tag}\n(Hiện tại: {VERSION})\n\n"
-            f"Mô tả:\n{changelog}\n\n"
-            f"Bạn có muốn tải tự động và cập nhật ngay không?",
+            "🎉 Thông báo bản cập nhật mới",
+            f"Đã có phiên bản mới trên GitHub!\n\n"
+            f"• Phiên bản mới: {latest_tag}\n"
+            f"• Phiên bản hiện tại: {VERSION}\n\n"
+            f"Nội dung thay đổi:\n{changelog}\n\n"
+            f"Bạn có muốn tự động tải về và nâng cấp ngay bây giờ không?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes
         )
@@ -473,8 +597,8 @@ class NoneCodeStudio(QMainWindow):
         file_ext = ".exe" if is_exe else ".zip"
         temp_file = os.path.join(temp_dir, f"update_{os.getpid()}{file_ext}")
 
-        progress_dlg = QProgressDialog("Đang tải bản cập nhật mới...", "Hủy", 0, 100, self)
-        progress_dlg.setWindowTitle("Cập nhật ứng dụng")
+        progress_dlg = QProgressDialog("Đang tải gói cập nhật mới...", "Hủy", 0, 100, self)
+        progress_dlg.setWindowTitle("Cập nhật None Code Studio")
         progress_dlg.setWindowModality(Qt.WindowModality.WindowModal)
         progress_dlg.setAutoClose(True)
         progress_dlg.show()
@@ -518,41 +642,59 @@ class NoneCodeStudio(QMainWindow):
 
         if is_exe:
             bat_content = f"""@echo off
+setlocal enabledelayedexpansion
 chcp 65001 >nul
-echo Dang cap nhat... Cho ung dung cu thoat hoan toan.
-:wait_loop
-timeout /t 1 /nobreak >nul
-taskkill /PID {current_pid} /F >nul 2>&1
-tasklist /fi "PID eq {current_pid}" 2>nul | find "{current_pid}" >nul
-if not errorlevel 1 goto wait_loop
 
-copy /y "{downloaded_file}" "{current_exe}" >nul
-del "{downloaded_file}" >nul 2>&1
+:WAIT_PID
+timeout /t 1 /nobreak >nul
+tasklist /fi "PID eq {current_pid}" 2>nul | find "{current_pid}" >nul
+if not errorlevel 1 goto WAIT_PID
+
+:RETRY_COPY
+copy /y "{downloaded_file}" "{current_exe}" >nul 2>&1
+if errorlevel 1 (
+    timeout /t 1 /nobreak >nul
+    goto RETRY_COPY
+)
+
+del /f /q "{downloaded_file}" >nul 2>&1
 start "" "{current_exe}"
-del "%~f0" & exit
+
+goto CLEANUP
+:CLEANUP
+(goto) 2>nul & del "%~f0"
 """
         else:
             bat_content = f"""@echo off
+setlocal enabledelayedexpansion
 chcp 65001 >nul
-echo Dang giai nen ban cap nhat...
-:wait_loop
-timeout /t 1 /nobreak >nul
-taskkill /PID {current_pid} /F >nul 2>&1
-tasklist /fi "PID eq {current_pid}" 2>nul | find "{current_pid}" >nul
-if not errorlevel 1 goto wait_loop
 
-powershell -NoProfile -Command "Expand-Archive -Path '{downloaded_file}' -DestinationPath '{target_dir}' -Force"
-del "{downloaded_file}" >nul 2>&1
+:WAIT_PID
+timeout /t 1 /nobreak >nul
+tasklist /fi "PID eq {current_pid}" 2>nul | find "{current_pid}" >nul
+if not errorlevel 1 goto WAIT_PID
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -Path '{downloaded_file}' -DestinationPath '{target_dir}' -Force"
+del /f /q "{downloaded_file}" >nul 2>&1
 start "" "{current_exe}"
-del "%~f0" & exit
+
+goto CLEANUP
+:CLEANUP
+(goto) 2>nul & del "%~f0"
 """
 
         with open(bat_file, "w", encoding="utf-8") as f:
             f.write(bat_content)
 
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        subprocess.Popen(["cmd.exe", "/c", bat_file], shell=True, creationflags=creationflags)
+        subprocess.Popen(
+            ["cmd.exe", "/c", bat_file],
+            shell=True,
+            creationflags=creationflags,
+            close_fds=True
+        )
 
+        QApplication.quit()
         os._exit(0)
 
     def create_toolbar_and_menu(self):
