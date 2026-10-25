@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QLineEdit,
     QPushButton, QProgressBar, QFileDialog, QListWidget, QListWidgetItem
 )
-import theme
+import app_theme as theme
 from workers import parse_github_url, CloneWorker
 
 

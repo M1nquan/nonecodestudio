@@ -7,13 +7,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication
-from theme import APP_NAME
+import app_theme
 from studio import NoneCodeStudio
 
 if __name__ == "__main__":
     app = QApplication.instance()
     if app is None:
-        QApplication.setApplicationName(APP_NAME)
+        QApplication.setApplicationName(app_theme.APP_NAME)
         app = QApplication(sys.argv)
         app.setStyle("Fusion")
         app.setFont(QFont("Segoe UI Variable Text", 9))

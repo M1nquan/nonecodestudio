@@ -5,7 +5,7 @@ from PyQt6.QtGui import QColor, QPainter
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QProgressBar
 )
-from theme import APP_NAME, CREDIT, VERSION, T, make_logo
+import app_theme as theme
 
 
 def animate_widget_fade_in(widget, duration=220):
@@ -60,19 +60,19 @@ class Overlay(QWidget):
         lay.setSpacing(8)
 
         self.logo = QLabel()
-        self.logo.setPixmap(make_logo(60))
+        self.logo.setPixmap(theme.make_logo(60))
         self.logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        title = QLabel(APP_NAME)
+        title = QLabel(theme.APP_NAME)
         title.setObjectName("title")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        badge = QLabel(f"{CREDIT}  ·  {VERSION}")
+        badge = QLabel(f"{theme.CREDIT}  ·  {theme.VERSION}")
         badge.setObjectName("splashBadge")
         badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.status_lbl = QLabel(self.MESSAGES[0])
-        self.status_lbl.setStyleSheet(f"color: {T['MUTED']}; font-size: 8pt;")
+        self.status_lbl.setStyleSheet(f"color: {theme.T['MUTED']}; font-size: 8pt;")
         self.status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.intro_bar = QProgressBar()
@@ -167,9 +167,9 @@ class Toast(QFrame):
             old.deleteLater()
         super().__init__(parent)
         self.setStyleSheet(
-            f"QFrame {{ background: {T['SURFACE']}; border: 1px solid {T['BORDER_ACTIVE']}; "
+            f"QFrame {{ background: {theme.T['SURFACE']}; border: 1px solid {theme.T['BORDER_ACTIVE']}; "
             f"border-radius: 8px; }}"
-            f"QLabel {{ color: {T['TEXT']}; border: none; background: transparent; font-size: 8.5pt; font-weight: 600; }}"
+            f"QLabel {{ color: {theme.T['TEXT']}; border: none; background: transparent; font-size: 8.5pt; font-weight: 600; }}"
         )
         lay = QHBoxLayout(self)
         lay.setContentsMargins(14, 8, 16, 8)

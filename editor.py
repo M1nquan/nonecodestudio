@@ -6,7 +6,7 @@ from PyQt6.Qsci import (
     QsciLexerJavaScript, QsciLexerHTML, QsciLexerCSS, QsciLexerSQL,
     QsciLexerJSON, QsciLexerMarkdown, QsciLexerBash, QsciLexerBatch
 )
-import theme
+import app_theme as theme
 
 
 class CodeEditor(QsciScintilla):

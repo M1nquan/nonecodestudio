@@ -21,8 +21,8 @@ from PyQt6.QtWidgets import (
     QAbstractItemView, QSizePolicy, QProgressDialog, QApplication
 )
 
-import theme
-from theme import ORG, APP_NAME, BROWSE, CREDIT, VERSION, T
+import app_theme as theme
+from app_theme import ORG, APP_NAME, BROWSE, CREDIT, VERSION, T
 from workers import venv_python, venv_root_of, find_venvs
 from editor import CodeEditor
 from widgets import Overlay, Toast
@@ -47,7 +47,7 @@ class DownloadWorker(QThread):
         try:
             req = urllib.request.Request(
                 self.url,
-                headers={"User-Agent": "NoneCodeStudio-AutoUpdater"}
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"}
             )
             with urllib.request.urlopen(req, timeout=30) as resp:
                 total_size = resp.info().get("Content-Length")
@@ -76,7 +76,6 @@ class NoneCodeStudio(QMainWindow):
     TERM_OPEN_H = 240
     TERM_CLOSED_H = 32
 
-    # CẤU HÌNH GITHUB REPOSITORY ĐỂ CHECK CẬP NHẬT
     GITHUB_OWNER = "M1nquan"
     GITHUB_REPO = "nonecodestudio"
 
@@ -127,7 +126,7 @@ class NoneCodeStudio(QMainWindow):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # 1. Custom Title Bar
+        # 1. Title bar
         self.title_bar = QWidget()
         self.title_bar.setObjectName("customTitleBar")
         self.title_bar.setFixedHeight(32)
@@ -174,7 +173,7 @@ class NoneCodeStudio(QMainWindow):
         self.title_bar.mouseMoveEvent = self.title_mouse_move
         self.title_bar.mouseDoubleClickEvent = lambda e: self.toggle_maximize()
 
-        # 2. Main Body Splitter
+        # 2. Main content
         body_widget = QWidget()
         body_layout = QHBoxLayout(body_widget)
         body_layout.setContentsMargins(0, 0, 0, 0)
@@ -186,7 +185,6 @@ class NoneCodeStudio(QMainWindow):
         body_layout.addWidget(self.split)
         root.addWidget(body_widget, 1)
 
-        # Explorer Panel
         side = QFrame()
         side.setObjectName("sidebar")
         side.setMinimumWidth(210)
@@ -219,7 +217,6 @@ class NoneCodeStudio(QMainWindow):
 
         self.split.addWidget(side)
 
-        # Editor Workspace
         main = QWidget()
         ml = QVBoxLayout(main)
         ml.setContentsMargins(0, 0, 0, 0)
@@ -241,7 +238,6 @@ class NoneCodeStudio(QMainWindow):
         self.tab_widget.setCornerWidget(btn_plus, Qt.Corner.TopRightCorner)
         ml.addWidget(self.tab_widget, 1)
 
-        # Find Bar
         self.find_bar = QFrame()
         self.find_bar.setObjectName("findBar")
         self.find_bar.setMaximumHeight(0)
@@ -270,7 +266,6 @@ class NoneCodeStudio(QMainWindow):
         esc.activated.connect(self.hide_find)
         ml.addWidget(self.find_bar)
 
-        # Terminal Panel
         self.term_panel = QFrame()
         self.term_panel.setObjectName("termPanel")
         self.term_panel.setMinimumHeight(0)
@@ -327,7 +322,6 @@ class NoneCodeStudio(QMainWindow):
         self.split.addWidget(main)
         self.split.setSizes([220, 1160])
 
-        # Status Bar
         sb = self.statusBar()
         sb.setSizeGripEnabled(False)
         self.lbl_status = QLabel("Ready")
@@ -400,7 +394,7 @@ class NoneCodeStudio(QMainWindow):
         return b
 
     def check_github_update(self):
-        """Kiểm tra bản cập nhật: Ưu tiên GitHub API, tự động Fallback qua Web Redirect nếu bị 403."""
+        """Kiểm tra bản cập nhật: Hỗ trợ GitHub API và tự động Fallback chuyển hướng web."""
         import json
         import urllib.error
         import urllib.request
@@ -408,11 +402,10 @@ class NoneCodeStudio(QMainWindow):
 
         api_url = f"https://api.github.com/repos/{self.GITHUB_OWNER}/{self.GITHUB_REPO}/releases/latest"
         latest_tag = ""
-        changelog = "Bản phát hành mới nhất từ GitHub."
+        changelog = "Bản phát hành cập nhật chính thức trên GitHub."
         download_url = None
         is_exe = True
 
-        # 1. Thử dùng GitHub REST API trước để lấy Changelog và Assets
         try:
             req = urllib.request.Request(
                 api_url,
@@ -425,15 +418,12 @@ class NoneCodeStudio(QMainWindow):
                 data = json.loads(resp.read().decode("utf-8"))
                 latest_tag = data.get("tag_name", "").strip()
                 changelog = data.get("body", changelog)
-                
-                # Tìm file .exe trong danh sách assets
                 for asset in data.get("assets", []):
                     name = asset.get("name", "").lower()
                     if name.endswith(".exe"):
                         download_url = asset.get("browser_download_url")
                         break
         except urllib.error.HTTPError as e:
-            # 2. Nếu bị chặn 403 hoặc lỗi API, kích hoạt Fallback qua URL Redirect
             if e.code in (403, 429):
                 try:
                     web_url = f"https://github.com/{self.GITHUB_OWNER}/{self.GITHUB_REPO}/releases/latest"
@@ -443,7 +433,6 @@ class NoneCodeStudio(QMainWindow):
                     )
                     with urllib.request.urlopen(web_req, timeout=6) as web_resp:
                         final_url = web_resp.geturl()
-                    
                     if not (final_url.endswith("/releases") or final_url.endswith("/releases/")):
                         latest_tag = final_url.rstrip("/").split("/")[-1]
                 except Exception:
@@ -453,7 +442,7 @@ class NoneCodeStudio(QMainWindow):
                 self.toast("Chưa có bản Release nào trên GitHub", theme.T["WARN"])
                 return
             else:
-                self.toast(f"Lỗi kiểm tra cập nhật ({e.code})", theme.T["ERR"])
+                self.toast(f"Lỗi kiểm tra ({e.code})", theme.T["ERR"])
                 return
         except Exception:
             self.toast("Không thể kết nối tới GitHub", theme.T["ERR"])
@@ -463,30 +452,27 @@ class NoneCodeStudio(QMainWindow):
             self.toast("Không tìm thấy thông tin bản cập nhật", theme.T["WARN"])
             return
 
-        # Tự động gán link download file exe nếu chưa lấy được từ Assets API
         if not download_url:
             download_url = f"https://github.com/{self.GITHUB_OWNER}/{self.GITHUB_REPO}/releases/download/{latest_tag}/nonecodestudio.exe"
 
-        # Hiển thị thông báo xác nhận cập nhật cho người dùng
         res = self.blurred(
             QMessageBox.question,
             self,
-            "Có bản cập nhật mới",
-            f"Bản phát hành: {latest_tag}\n(Phiên bản hiện tại: {VERSION})\n\n"
+            "Cập nhật hệ thống",
+            f"Bản phát hành: {latest_tag}\n(Hiện tại: {VERSION})\n\n"
             f"Mô tả:\n{changelog}\n\n"
-            f"Bạn có muốn tự động tải 'nonecodestudio.exe' và cập nhật ngay không?",
+            f"Bạn có muốn tải tự động và cập nhật ngay không?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes
         )
         if res == QMessageBox.StandardButton.Yes:
             self.start_auto_update(download_url, is_exe=True)
+
     def start_auto_update(self, download_url, is_exe):
-        """Tải bản mới về thư mục tạm và tự động ghi đè file hiện tại."""
         temp_dir = tempfile.gettempdir()
         file_ext = ".exe" if is_exe else ".zip"
         temp_file = os.path.join(temp_dir, f"update_{os.getpid()}{file_ext}")
 
-        # Hộp thoại hiển thị tiến trình tải
         progress_dlg = QProgressDialog("Đang tải bản cập nhật mới...", "Hủy", 0, 100, self)
         progress_dlg.setWindowTitle("Cập nhật ứng dụng")
         progress_dlg.setWindowModality(Qt.WindowModality.WindowModal)
@@ -514,61 +500,60 @@ class NoneCodeStudio(QMainWindow):
         self._updater_thread = worker
 
     def apply_update_and_restart(self, downloaded_file, is_exe):
-        """Khởi tạo script batch để đợi app tắt rồi thay thế file và khởi động lại."""
-        current_exe = os.path.abspath(sys.argv[0])
-        # Nếu đang chạy bằng file python thuần (chưa đóng gói exe)
-        if not current_exe.lower().endswith(".exe"):
+        """Khởi tạo script batch chuẩn Windows không bị lỗi chờ tiến trình và dọn dẹp an toàn."""
+        if getattr(sys, 'frozen', False):
             current_exe = os.path.abspath(sys.executable)
+        else:
+            current_exe = os.path.abspath(sys.argv[0])
+            if not current_exe.lower().endswith(".exe"):
+                current_exe = os.path.abspath(sys.executable)
 
         target_dir = os.path.dirname(current_exe)
         current_pid = os.getpid()
 
-        # Tạo file batch tạm thời để thay thế file sau khi app đóng
+        if hasattr(self, "process") and self.process.state() != QProcess.ProcessState.NotRunning:
+            self.process.kill()
+
         bat_file = os.path.join(tempfile.gettempdir(), f"update_runner_{current_pid}.bat")
 
         if is_exe:
-            # Ghi đè file exe
             bat_content = f"""@echo off
 chcp 65001 >nul
-echo Dang cap nhat... Cho ung dung dong hoan toan.
+echo Dang cap nhat... Cho ung dung cu thoat hoan toan.
 :wait_loop
-tasklist /fi "PID eq {current_pid}" | find ":" >nul
-if errorlevel 1 (
-    timeout /t 1 /nobreak >nul
-    goto wait_loop
-)
-move /y "{downloaded_file}" "{current_exe}" >nul
+timeout /t 1 /nobreak >nul
+taskkill /PID {current_pid} /F >nul 2>&1
+tasklist /fi "PID eq {current_pid}" 2>nul | find "{current_pid}" >nul
+if not errorlevel 1 goto wait_loop
+
+copy /y "{downloaded_file}" "{current_exe}" >nul
+del "{downloaded_file}" >nul 2>&1
 start "" "{current_exe}"
-del "%~f0"
-exit
+del "%~f0" & exit
 """
         else:
-            # Giải nén đè nếu là file .zip
             bat_content = f"""@echo off
 chcp 65001 >nul
 echo Dang giai nen ban cap nhat...
 :wait_loop
-tasklist /fi "PID eq {current_pid}" | find ":" >nul
-if errorlevel 1 (
-    timeout /t 1 /nobreak >nul
-    goto wait_loop
-)
-powershell -Command "Expand-Archive -Path '{downloaded_file}' -DestinationPath '{target_dir}' -Force"
-del "{downloaded_file}" >nul
+timeout /t 1 /nobreak >nul
+taskkill /PID {current_pid} /F >nul 2>&1
+tasklist /fi "PID eq {current_pid}" 2>nul | find "{current_pid}" >nul
+if not errorlevel 1 goto wait_loop
+
+powershell -NoProfile -Command "Expand-Archive -Path '{downloaded_file}' -DestinationPath '{target_dir}' -Force"
+del "{downloaded_file}" >nul 2>&1
 start "" "{current_exe}"
-del "%~f0"
-exit
+del "%~f0" & exit
 """
 
         with open(bat_file, "w", encoding="utf-8") as f:
             f.write(bat_content)
 
-        # Chạy script ngầm
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         subprocess.Popen(["cmd.exe", "/c", bat_file], shell=True, creationflags=creationflags)
 
-        # Thoát ứng dụng hiện tại để tiến trình batch thực hiện nhiệm vụ
-        QApplication.quit()
+        os._exit(0)
 
     def create_toolbar_and_menu(self):
         self.act_new = self._act("New", "Ctrl+N", self.new_file, "plus")
@@ -587,7 +572,6 @@ exit
         self.act_venv = self._act("Env Manager…", "Ctrl+Shift+V", self.open_venv_dialog, "box")
         self.act_req = self._act("Install requirements.txt", "", self.install_selected_requirements)
         
-        # Nút kiểm tra và tự cập nhật
         self.act_check_update = self._act("Check for Updates…", "", self.check_github_update)
         self.act_about = self._act("About", "", self.show_about)
 
