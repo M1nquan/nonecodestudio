@@ -13,7 +13,7 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtGui import (
     QAction, QDesktopServices, QIcon, QKeySequence, QShortcut,
-    QTextCharFormat, QTextCursor, QFileSystemModel
+    QTextCharFormat, QTextCursor, QFileSystemModel, QColor
 )
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QTabWidget,
