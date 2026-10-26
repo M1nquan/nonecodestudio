@@ -9,7 +9,8 @@ import urllib.error
 import urllib.request
 from PyQt6.QtCore import (
     Qt, QProcess, QProcessEnvironment, QDir, QUrl, QSettings,
-    QPropertyAnimation, QEasingCurve, QSize, QPoint, QThread, pyqtSignal, QTimer
+    QPropertyAnimation, QParallelAnimationGroup, QEasingCurve,
+    QSize, QPoint, QThread, pyqtSignal, QTimer
 )
 from PyQt6.QtGui import (
     QAction, QDesktopServices, QIcon, QKeySequence, QShortcut,
@@ -19,11 +20,12 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QTabWidget,
     QTreeView, QTextEdit, QFileDialog, QMessageBox, QLabel, QToolBar,
     QToolButton, QFrame, QMenu, QLineEdit, QComboBox, QInputDialog,
-    QAbstractItemView, QSizePolicy, QProgressDialog, QApplication
+    QAbstractItemView, QSizePolicy, QProgressDialog, QApplication,
+    QGraphicsOpacityEffect
 )
 
 import app_theme as theme
-from app_theme import ORG, APP_NAME, BROWSE, CREDIT, VERSION, T
+from app_theme import ORG, APP_NAME, APP_SUB, BROWSE, CREDIT, VERSION, T
 from workers import venv_python, venv_root_of, find_venvs
 from editor import CodeEditor
 from widgets import Overlay, Toast
@@ -31,8 +33,7 @@ from dialogs import CloneDialog, VenvDialog
 
 
 class CheckUpdateThread(QThread):
-    """Luồng ngầm kiểm tra bản cập nhật mới trên GitHub mà không chặn giao diện chính."""
-    update_found = pyqtSignal(str, str, str)  # (latest_tag, changelog, download_url)
+    update_found = pyqtSignal(str, str, str)
 
     def __init__(self, owner, repo, current_ver):
         super().__init__()
@@ -59,7 +60,6 @@ class CheckUpdateThread(QThread):
             with urllib.request.urlopen(req, timeout=6) as resp:
                 releases = json.loads(resp.read().decode("utf-8"))
         except Exception:
-            # Fallback nếu API bị chặn rate-limit: đọc redirect
             try:
                 web_url = f"https://github.com/{self.owner}/{self.repo}/releases/latest"
                 wreq = urllib.request.Request(
@@ -70,7 +70,7 @@ class CheckUpdateThread(QThread):
                     furl = wresp.geturl()
                 if not (furl.endswith("/releases") or furl.endswith("/releases/")):
                     tag = furl.rstrip("/").split("/")[-1]
-                    releases = [{"tag_name": tag, "body": "Bản phát hành GitHub mới nhất.", "assets": []}]
+                    releases = [{"tag_name": tag, "body": "Latest release from GitHub.", "assets": []}]
             except Exception:
                 return
 
@@ -89,7 +89,7 @@ class CheckUpdateThread(QThread):
 
         if target_release:
             latest_tag = target_release.get("tag_name", "").strip()
-            changelog = target_release.get("body", "Bản phát hành cập nhật chính thức.")
+            changelog = target_release.get("body", "Official update release.")
             download_url = None
             for asset in target_release.get("assets", []):
                 name = asset.get("name", "").lower()
@@ -146,8 +146,8 @@ class DownloadWorker(QThread):
 
 
 class NoneCodeStudio(QMainWindow):
-    TERM_OPEN_H = 240
-    TERM_CLOSED_H = 32
+    TERM_OPEN_H = 260
+    TERM_CLOSED_H = 34
 
     GITHUB_OWNER = "M1nquan"
     GITHUB_REPO = "nonecodestudio"
@@ -159,14 +159,15 @@ class NoneCodeStudio(QMainWindow):
         self.workspace = ws if isinstance(ws, str) and os.path.isdir(ws) else QDir.homePath()
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
 
-        saved_theme = self.settings.value("theme", "Deep Obsidian")
+        saved_theme = self.settings.value("theme", theme.CURRENT_THEME_NAME)
         if saved_theme in theme.THEMES:
             theme.set_theme(saved_theme)
 
         self.setWindowTitle(f"{APP_NAME} — {VERSION}")
         self.setWindowIcon(QIcon(theme.make_logo(48)))
-        self.resize(1380, 840)
+        self.resize(1380, 850)
         geo = self.settings.value("geometry")
         if geo:
             self.restoreGeometry(geo)
@@ -191,8 +192,7 @@ class NoneCodeStudio(QMainWindow):
         self.set_workspace(self.workspace)
         self.new_file()
 
-        # Bật luồng kiểm tra cập nhật ngầm sau khi app khởi động xong 3 giây
-        QTimer.singleShot(3000, self.start_silent_update_check)
+        QTimer.singleShot(2500, self.start_silent_update_check)
 
     def create_layout(self):
         central = QWidget()
@@ -202,19 +202,18 @@ class NoneCodeStudio(QMainWindow):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # 1. Custom Title Bar
         self.title_bar = QWidget()
         self.title_bar.setObjectName("customTitleBar")
-        self.title_bar.setFixedHeight(32)
+        self.title_bar.setFixedHeight(36)
         tb_layout = QHBoxLayout(self.title_bar)
-        tb_layout.setContentsMargins(10, 0, 0, 0)
+        tb_layout.setContentsMargins(12, 0, 0, 0)
         tb_layout.setSpacing(8)
 
         self.title_icon = QLabel()
-        self.title_icon.setPixmap(theme.make_logo(16))
+        self.title_icon.setPixmap(theme.make_logo(18))
         
         self.title_lbl = QLabel(f"{APP_NAME} — {VERSION}")
-        self.title_lbl.setStyleSheet(f"color: {T['MUTED']}; font-size: 8.5pt; font-weight: 600;")
+        self.title_lbl.setStyleSheet(f"color: {T['BORDER_ACTIVE']}; font-size: 8.5pt; font-weight: 700;")
 
         tb_layout.addWidget(self.title_icon)
         tb_layout.addWidget(self.title_lbl)
@@ -249,7 +248,6 @@ class NoneCodeStudio(QMainWindow):
         self.title_bar.mouseMoveEvent = self.title_mouse_move
         self.title_bar.mouseDoubleClickEvent = lambda e: self.toggle_maximize()
 
-        # 2. Main content
         body_widget = QWidget()
         body_layout = QHBoxLayout(body_widget)
         body_layout.setContentsMargins(0, 0, 0, 0)
@@ -308,7 +306,7 @@ class NoneCodeStudio(QMainWindow):
         btn_plus = QToolButton()
         btn_plus.setObjectName("tabPlusBtn")
         btn_plus.setIcon(theme.vicon("plus", T["MUTED"], 12))
-        btn_plus.setToolTip("File mới (Ctrl+N)")
+        btn_plus.setToolTip("New File (Ctrl+N)")
         btn_plus.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_plus.clicked.connect(self.new_file)
         self.tab_widget.setCornerWidget(btn_plus, Qt.Corner.TopRightCorner)
@@ -321,7 +319,7 @@ class NoneCodeStudio(QMainWindow):
         fb.setContentsMargins(8, 4, 8, 4)
         fb.setSpacing(6)
         self.find_edit = QLineEdit()
-        self.find_edit.setPlaceholderText("Tìm trong file… (Enter để tìm tiếp)")
+        self.find_edit.setPlaceholderText("Find in file… (Press Enter to find next)")
         self.find_edit.returnPressed.connect(lambda: self.find(True))
         self.find_edit.textEdited.connect(lambda _t: setattr(self, "_last_find", ""))
         btn_prev = QToolButton()
@@ -361,7 +359,7 @@ class NoneCodeStudio(QMainWindow):
         thl.addWidget(lbl_term)
 
         self.lbl_term_info = QLabel()
-        self.lbl_term_info.setStyleSheet(f"color: {T['MUTED']}; font-size: 8pt;")
+        self.lbl_term_info.setStyleSheet(f"color: {T['MUTED']}; font-size: 8pt; font-family: 'Consolas';")
         thl.addWidget(self.lbl_term_info)
         thl.addStretch()
 
@@ -371,7 +369,7 @@ class NoneCodeStudio(QMainWindow):
         btn_clear.clicked.connect(self.clear_terminal)
         self.btn_toggle = QToolButton()
         self.btn_toggle.setIcon(theme.vicon("chev_down", T["MUTED"], 12))
-        self.btn_toggle.setToolTip("Thu gọn / Mở Terminal (Ctrl+`)")
+        self.btn_toggle.setToolTip("Toggle Terminal (Ctrl+`)")
         self.btn_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_toggle.clicked.connect(self.toggle_terminal)
         thl.addWidget(btn_clear)
@@ -386,7 +384,7 @@ class NoneCodeStudio(QMainWindow):
         self.terminal_output.setReadOnly(True)
         self.stdin_edit = QLineEdit()
         self.stdin_edit.setObjectName("termIn")
-        self.stdin_edit.setPlaceholderText("stdin › Nhập dữ liệu rồi nhấn Enter...")
+        self.stdin_edit.setPlaceholderText("stdin › Enter input and press Enter...")
         self.stdin_edit.returnPressed.connect(self.send_stdin)
         tb.addWidget(self.terminal_output, 1)
         tb.addWidget(self.stdin_edit)
@@ -403,10 +401,9 @@ class NoneCodeStudio(QMainWindow):
         self.lbl_status = QLabel("Ready")
         self.lbl_run = QLabel("")
         
-        # Nút / Pill thông báo bản cập nhật trên Status Bar
         self.lbl_update_badge = QLabel("")
         self.lbl_update_badge.setObjectName("statusPill")
-        self.lbl_update_badge.setStyleSheet(f"background: {T['OK']}; color: #000000; font-weight: 700; cursor: pointer;")
+        self.lbl_update_badge.setStyleSheet(f"background: {T['OK']}; color: #000000; font-weight: 700;")
         self.lbl_update_badge.setCursor(Qt.CursorShape.PointingHandCursor)
         self.lbl_update_badge.mousePressEvent = lambda _e: self.check_github_update()
         self.lbl_update_badge.hide()
@@ -448,14 +445,14 @@ class NoneCodeStudio(QMainWindow):
             theme.set_theme(name)
             self.settings.setValue("theme", name)
             self.setStyleSheet(theme.build_style())
-            self.title_icon.setPixmap(theme.make_logo(16))
-            self.title_lbl.setStyleSheet(f"color: {theme.T['MUTED']}; font-size: 8.5pt; font-weight: 600;")
+            self.title_icon.setPixmap(theme.make_logo(18))
+            self.title_lbl.setStyleSheet(f"color: {theme.T['BORDER_ACTIVE']}; font-size: 8.5pt; font-weight: 700;")
             for i in range(self.tab_widget.count()):
                 w = self.tab_widget.widget(i)
                 if isinstance(w, CodeEditor):
                     w._setup_ui()
                     w.apply_lexer()
-            self.toast(f"Theme: {name}", theme.T["OK"])
+            self.toast(f"Theme switched: {name}", theme.T["OK"])
 
     def _act(self, text, shortcut, slot, icon_kind=None, icon_color=None):
         a = QAction(text, self)
@@ -480,28 +477,17 @@ class NoneCodeStudio(QMainWindow):
         return b
 
     def start_silent_update_check(self):
-        """Khởi động luồng kiểm tra bản mới một cách âm thầm."""
         self._check_thread = CheckUpdateThread(self.GITHUB_OWNER, self.GITHUB_REPO, VERSION)
         self._check_thread.update_found.connect(self.on_background_update_detected)
         self._check_thread.start()
 
     def on_background_update_detected(self, latest_tag, changelog, download_url):
-        """Khi phát hiện bản mới, bật notification Toast và hiển thị huy hiệu trên StatusBar."""
-        self.lbl_update_badge.setText(f"🚀 Có bản mới: {latest_tag}")
-        self.lbl_update_badge.setToolTip(f"Bấm để cập nhật lên {latest_tag}")
+        self.lbl_update_badge.setText(f"🚀 New: {latest_tag}")
+        self.lbl_update_badge.setToolTip(f"Click to upgrade to {latest_tag}")
         self.lbl_update_badge.show()
-
-        # Hiện Toast nhẹ nhàng thông báo có bản cập nhật mới
-        self.toast(f"Phát hiện bản cập nhật mới: {latest_tag}", theme.T["OK"])
+        self.toast(f"Update available: {latest_tag}", theme.T["OK"])
 
     def check_github_update(self):
-        """Kiểm tra và mở hộp thoại thông báo cập nhật đầy đủ."""
-        import json
-        import re
-        import urllib.error
-        import urllib.request
-        from app_theme import VERSION
-
         api_url = f"https://api.github.com/repos/{self.GITHUB_OWNER}/{self.GITHUB_REPO}/releases"
         releases = []
 
@@ -527,22 +513,22 @@ class NoneCodeStudio(QMainWindow):
                         furl = wresp.geturl()
                     if not (furl.endswith("/releases") or furl.endswith("/releases/")):
                         tag = furl.rstrip("/").split("/")[-1]
-                        releases = [{"tag_name": tag, "body": "Bản phát hành cập nhật chính thức trên GitHub.", "assets": []}]
+                        releases = [{"tag_name": tag, "body": "Official update release.", "assets": []}]
                 except Exception:
-                    self.toast("Không thể lấy dữ liệu cập nhật", theme.T["ERR"])
+                    self.toast("Unable to retrieve update data", theme.T["ERR"])
                     return
             elif e.code == 404:
-                self.toast("Chưa có bản Release nào trên GitHub", theme.T["WARN"])
+                self.toast("No releases found on GitHub", theme.T["WARN"])
                 return
             else:
-                self.toast(f"Lỗi kiểm tra ({e.code})", theme.T["ERR"])
+                self.toast(f"Check error ({e.code})", theme.T["ERR"])
                 return
         except Exception:
-            self.toast("Không thể kết nối tới GitHub", theme.T["ERR"])
+            self.toast("Failed to connect to GitHub", theme.T["ERR"])
             return
 
         if not releases or not isinstance(releases, list):
-            self.toast("Không tìm thấy thông tin bản cập nhật", theme.T["WARN"])
+            self.toast("No update records found", theme.T["WARN"])
             return
 
         def parse_ver(tag_str):
@@ -560,11 +546,11 @@ class NoneCodeStudio(QMainWindow):
                 target_release = rel
 
         if not target_release:
-            self.toast("Bạn đang sử dụng phiên bản mới nhất!", theme.T["OK"])
+            self.toast("You are using the latest version!", theme.T["OK"])
             return
 
         latest_tag = target_release.get("tag_name", "").strip()
-        changelog = target_release.get("body", "Bản cập nhật tối ưu hóa hiệu năng và sửa lỗi.")
+        changelog = target_release.get("body", "Performance improvements and bug fixes.")
 
         download_url = None
         for asset in target_release.get("assets", []):
@@ -576,16 +562,15 @@ class NoneCodeStudio(QMainWindow):
         if not download_url:
             download_url = f"https://github.com/{self.GITHUB_OWNER}/{self.GITHUB_REPO}/releases/download/{latest_tag}/nonecodestudio.exe"
 
-        # Hộp thoại thông báo đầy đủ
         res = self.blurred(
             QMessageBox.question,
             self,
-            "🎉 Thông báo bản cập nhật mới",
-            f"Đã có phiên bản mới trên GitHub!\n\n"
-            f"• Phiên bản mới: {latest_tag}\n"
-            f"• Phiên bản hiện tại: {VERSION}\n\n"
-            f"Nội dung thay đổi:\n{changelog}\n\n"
-            f"Bạn có muốn tự động tải về và nâng cấp ngay bây giờ không?",
+            "🎉 Update Available",
+            f"A newer version was detected on GitHub!\n\n"
+            f"• Available Version: {latest_tag}\n"
+            f"• Current Version: {VERSION}\n\n"
+            f"Changelog:\n{changelog}\n\n"
+            f"Would you like to automatically download and upgrade now?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes
         )
@@ -597,8 +582,8 @@ class NoneCodeStudio(QMainWindow):
         file_ext = ".exe" if is_exe else ".zip"
         temp_file = os.path.join(temp_dir, f"update_{os.getpid()}{file_ext}")
 
-        progress_dlg = QProgressDialog("Đang tải gói cập nhật mới...", "Hủy", 0, 100, self)
-        progress_dlg.setWindowTitle("Cập nhật None Code Studio")
+        progress_dlg = QProgressDialog("Downloading update package...", "Cancel", 0, 100, self)
+        progress_dlg.setWindowTitle("Updating Application")
         progress_dlg.setWindowModality(Qt.WindowModality.WindowModal)
         progress_dlg.setAutoClose(True)
         progress_dlg.show()
@@ -614,7 +599,7 @@ class NoneCodeStudio(QMainWindow):
 
         def on_failed(err_msg):
             progress_dlg.close()
-            self.toast(f"Tải thất bại: {err_msg}", theme.T["ERR"])
+            self.toast(f"Download failed: {err_msg}", theme.T["ERR"])
 
         progress_dlg.canceled.connect(worker.cancel)
         worker.progress.connect(on_progress)
@@ -624,7 +609,6 @@ class NoneCodeStudio(QMainWindow):
         self._updater_thread = worker
 
     def apply_update_and_restart(self, downloaded_file, is_exe):
-        """Khởi tạo script batch chuẩn Windows không bị lỗi chờ tiến trình và dọn dẹp an toàn."""
         if getattr(sys, 'frozen', False):
             current_exe = os.path.abspath(sys.executable)
         else:
@@ -758,7 +742,7 @@ goto CLEANUP
 
         self.cmb_py = QComboBox()
         self.cmb_py.setObjectName("runtimePill")
-        self.cmb_py.setToolTip("Chọn Python Environment")
+        self.cmb_py.setToolTip("Select Python Environment")
         self.cmb_py.activated.connect(self.on_interpreter_activated)
         tb.addWidget(self.cmb_py)
         tb.addWidget(self._tool_btn(self.act_venv))
@@ -766,7 +750,7 @@ goto CLEANUP
 
         self.cmb_theme = QComboBox()
         self.cmb_theme.setObjectName("themeSelector")
-        self.cmb_theme.setToolTip("Đổi màu giao diện (UI/UX Theme)")
+        self.cmb_theme.setToolTip("Select UI / Color Theme")
         for th_name in theme.THEMES:
             self.cmb_theme.addItem(th_name)
         self.cmb_theme.setCurrentText(theme.CURRENT_THEME_NAME)
@@ -805,7 +789,7 @@ goto CLEANUP
         pix = self.grab()
         if was_visible:
             self.overlay.show()
-        return theme.gaussian_blur(pix, 12)
+        return theme.gaussian_blur(pix, 14)
 
     def blurred(self, fn, *args, **kwargs):
         pix = self.safe_capture_blurred()
@@ -813,7 +797,7 @@ goto CLEANUP
         try:
             return fn(*args, **kwargs)
         finally:
-            self.overlay.fade_out(200)
+            self.overlay.fade_out(260)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -832,7 +816,7 @@ goto CLEANUP
         self.refresh_interpreters()
 
     def open_folder_dialog(self):
-        folder = self.blurred(QFileDialog.getExistingDirectory, self, "Mở thư mục", self.workspace)
+        folder = self.blurred(QFileDialog.getExistingDirectory, self, "Open Workspace Directory", self.workspace)
         if folder:
             self.set_workspace(folder)
             self.toast("Workspace mounted", theme.T["OK"])
@@ -865,7 +849,7 @@ goto CLEANUP
             menu.addAction("Delete", lambda: self.fs_delete(path))
         menu.addSeparator()
         target = path if is_dir else os.path.dirname(path)
-        menu.addAction("Reveal in Explorer",
+        menu.addAction("Reveal in File Explorer",
                        lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(target)))
         menu.exec(self.tree_view.viewport().mapToGlobal(pos))
 
@@ -943,7 +927,7 @@ goto CLEANUP
         dlg.deleteLater()
         if path:
             self.set_workspace(path)
-            self.toast("Repository cloned", theme.T["OK"])
+            self.toast("Repository cloned successfully", theme.T["OK"])
 
     def custom_pythons(self):
         val = self.settings.value("custom_pythons", [])
@@ -977,7 +961,7 @@ goto CLEANUP
 
     def on_interpreter_activated(self, index):
         if self.cmb_py.itemData(index) == BROWSE:
-            path, _ = self.blurred(QFileDialog.getOpenFileName, self, "Select Python", "",
+            path, _ = self.blurred(QFileDialog.getOpenFileName, self, "Select Python Runtime", "",
                                    "Python (python*.exe python*);;All (*.*)")
             if path:
                 customs = self.custom_pythons()
@@ -1009,7 +993,7 @@ goto CLEANUP
     def prompt_create_venv(self):
         if not self._require_workspace():
             return
-        name, ok = self.blurred(QInputDialog.getText, self, "Create venv", "Name:",
+        name, ok = self.blurred(QInputDialog.getText, self, "Create Virtual Environment", "Directory Name:",
                                 QLineEdit.EchoMode.Normal, ".venv")
         if ok and name.strip():
             self.create_venv(name.strip())
@@ -1048,7 +1032,7 @@ goto CLEANUP
             self.toast("Not a venv directory", theme.T["WARN"])
             return False
         res = self.blurred(
-            QMessageBox.question, self, "Delete venv",
+            QMessageBox.question, self, "Delete Virtual Environment",
             f"Delete venv directory?\n{root}",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
@@ -1060,12 +1044,12 @@ goto CLEANUP
         except OSError as e:
             self.toast(f"Error: {e}", theme.T["ERR"])
             return False
-        self.toast("Venv deleted", theme.T["WARN"])
+        self.toast("Virtual Environment removed", theme.T["WARN"])
         return True
 
     def _require_workspace(self):
         if not os.path.isdir(self.workspace):
-            self.toast("Invalid workspace", theme.T["WARN"])
+            self.toast("Invalid workspace directory", theme.T["WARN"])
             return False
         return True
 
@@ -1167,10 +1151,10 @@ goto CLEANUP
     def show_find(self):
         self.find_bar.show()
         anim = QPropertyAnimation(self.find_bar, b"maximumHeight", self)
-        anim.setDuration(160)
+        anim.setDuration(260)
         anim.setStartValue(self.find_bar.height())
         anim.setEndValue(42)
-        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        anim.setEasingCurve(QEasingCurve.Type.OutExpo)
         anim.start()
         self._find_anim = anim
         self.find_edit.setFocus()
@@ -1178,10 +1162,10 @@ goto CLEANUP
 
     def hide_find(self):
         anim = QPropertyAnimation(self.find_bar, b"maximumHeight", self)
-        anim.setDuration(140)
+        anim.setDuration(200)
         anim.setStartValue(self.find_bar.height())
         anim.setEndValue(0)
-        anim.setEasingCurve(QEasingCurve.Type.InCubic)
+        anim.setEasingCurve(QEasingCurve.Type.InExpo)
         anim.finished.connect(self.find_bar.hide)
         anim.start()
         self._find_anim = anim
@@ -1200,7 +1184,7 @@ goto CLEANUP
             found = ed.findFirst(text, False, False, False, True, forward)
             self._last_find = text
         if not found:
-            self.toast("Not found", theme.T["WARN"])
+            self.toast("Match not found", theme.T["WARN"])
 
     def toggle_terminal(self):
         self.set_terminal_open(not self._term_open)
@@ -1211,10 +1195,10 @@ goto CLEANUP
             self.term_body.show()
         target = self.TERM_OPEN_H if opened else self.TERM_CLOSED_H
         anim = QPropertyAnimation(self.term_panel, b"maximumHeight", self)
-        anim.setDuration(200)
+        anim.setDuration(320)
         anim.setStartValue(self.term_panel.height())
         anim.setEndValue(target)
-        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        anim.setEasingCurve(QEasingCurve.Type.OutExpo)
         if not opened:
             anim.finished.connect(self.term_body.hide)
         anim.start()
@@ -1224,11 +1208,12 @@ goto CLEANUP
     def clear_terminal(self):
         self.terminal_output.clear()
 
-    def write_term(self, text, color="#cbd5e1"):
+    def write_term(self, text, color=None):
+        color_code = color or "#cbd5e1"
         cur = self.terminal_output.textCursor()
         cur.movePosition(QTextCursor.MoveOperation.End)
         fmt = QTextCharFormat()
-        fmt.setForeground(QColor(color))
+        fmt.setForeground(QColor(color_code))
         cur.insertText(text, fmt)
         self.terminal_output.setTextCursor(cur)
         self.terminal_output.ensureCursorVisible()
@@ -1243,15 +1228,15 @@ goto CLEANUP
 
     def start_task(self, program, args, cwd, title, on_done=None, python=None):
         if self.process.state() != QProcess.ProcessState.NotRunning:
-            self.toast("Process is already running", theme.T["WARN"])
+            self.toast("A task is already running", theme.T["WARN"])
             return False
 
         self._on_done = on_done
         self.clear_terminal()
         if not self._term_open:
             self.set_terminal_open(True)
-        self.write_term(f"› {title}\n", theme.T["TEXT"])
-        self.write_term(f"$ {program} {' '.join(args)}\n{'─' * 50}\n", theme.T["SUBTLE"])
+        self.write_term(f"› [START] {title}\n", theme.T["BORDER_ACTIVE"])
+        self.write_term(f"$ {program} {' '.join(args)}\n{'─' * 55}\n", theme.T["MUTED"])
 
         env = QProcessEnvironment.systemEnvironment()
         venv = venv_root_of(python)
@@ -1281,14 +1266,15 @@ goto CLEANUP
         if not ed:
             return
         if self.process.state() != QProcess.ProcessState.NotRunning:
-            self.toast("A process is already running", theme.T["WARN"])
+            self.toast("Active process already running", theme.T["WARN"])
             return
         if not self.save_editor(ed) or not ed.filepath:
             return
 
-        ext = os.path.splitext(ed.filepath)[1].lower()
-        cwd = os.path.dirname(ed.filepath)
-        name = os.path.basename(ed.filepath)
+        filepath = os.path.abspath(ed.filepath)
+        ext = os.path.splitext(filepath)[1].lower()
+        cwd = os.path.dirname(filepath)
+        name = os.path.basename(filepath)
         base = os.path.splitext(name)[0]
 
         if ext in (".html", ".htm"):
@@ -1299,35 +1285,38 @@ goto CLEANUP
         if ext in (".py", ".pyw"):
             py = self.cmb_py.currentData()
             if not py or not os.path.isfile(py):
-                self.toast("Invalid Python runtime", theme.T["ERR"])
-                return
-            program, args, python = py, ["-u", ed.filepath], py
+                py = sys.executable
+            program, args, python = py, ["-u", filepath], py
         elif ext in (".bat", ".cmd"):
-            program, args = "cmd.exe", ["/c", ed.filepath]
+            program = os.environ.get("COMSPEC", "cmd.exe")
+            args = ["/c", filepath]
         elif ext in (".sh", ".bash"):
-            program, args = shutil.which("bash") or "bash", [ed.filepath]
+            program = shutil.which("bash") or "bash"
+            args = [filepath]
         elif ext == ".js":
             runtime = shutil.which("bun") or shutil.which("node") or "node"
-            program, args = runtime, [ed.filepath]
+            program, args = runtime, [filepath]
         elif ext == ".ts":
             runtime = shutil.which("bun") or shutil.which("ts-node") or shutil.which("deno")
             if runtime and "deno" in runtime:
-                program, args = runtime, ["run", ed.filepath]
+                program, args = runtime, ["run", filepath]
             else:
-                program, args = runtime or "ts-node", [ed.filepath]
+                program, args = runtime or "ts-node", [filepath]
         elif ext == ".go":
-            program, args = shutil.which("go") or "go", ["run", ed.filepath]
+            program = shutil.which("go") or "go"
+            args = ["run", filepath]
         elif ext == ".rs":
-            program, args = shutil.which("rustc") or "rustc", [ed.filepath, "-o", os.path.join(cwd, base)]
+            program = shutil.which("rustc") or "rustc"
+            args = [filepath, "-o", os.path.join(cwd, base)]
         elif ext in (".c", ".cpp"):
             compiler = shutil.which("g++") or shutil.which("gcc") or shutil.which("clang++")
             if not compiler:
-                self.toast("GCC / Clang not found", theme.T["ERR"])
+                self.toast("GCC / Clang not found in PATH", theme.T["ERR"])
                 return
             out_bin = os.path.join(cwd, f"{base}.exe" if os.name == "nt" else base)
-            program, args = compiler, [ed.filepath, "-o", out_bin]
+            program, args = compiler, [filepath, "-o", out_bin]
         else:
-            self.toast(f"No runner configured for {ext}", theme.T["WARN"])
+            self.toast(f"No runner configured for extension: {ext}", theme.T["WARN"])
             return
 
         self.start_task(program, args, cwd, name, python=python)
@@ -1335,7 +1324,7 @@ goto CLEANUP
     def stop_process(self):
         if self.process.state() != QProcess.ProcessState.NotRunning:
             self.process.kill()
-            self.write_term("\n[Process terminated]\n", theme.T["WARN"])
+            self.write_term("\n[Process terminated by user]\n", theme.T["WARN"])
 
     def handle_stdout(self):
         data = bytes(self.process.readAllStandardOutput()).decode("utf-8", errors="ignore")
@@ -1347,10 +1336,10 @@ goto CLEANUP
 
     def on_process_finished(self, code, status):
         ok = code == 0 and status == QProcess.ExitStatus.NormalExit
-        self.write_term(f"\n{'─' * 50}\nExit code {code}\n",
+        self.write_term(f"\n{'─' * 55}\nExit code {code}\n",
                         theme.T["OK"] if ok else theme.T["ERR"])
         self.set_running(False)
-        self.toast("Finished" if ok else f"Exit code {code}",
+        self.toast("Execution completed" if ok else f"Exit code {code}",
                    theme.T["OK"] if ok else theme.T["ERR"])
         cb, self._on_done = self._on_done, None
         if cb:
@@ -1358,7 +1347,7 @@ goto CLEANUP
 
     def on_process_error(self, err):
         if err == QProcess.ProcessError.FailedToStart:
-            self.write_term("\nFailed to spawn process.\n", theme.T["ERR"])
+            self.write_term("\n[Error] Failed to spawn process executable. Check environment path.\n", theme.T["ERR"])
             self.set_running(False)
             self.toast("Launch failed", theme.T["ERR"])
             cb, self._on_done = self._on_done, None
@@ -1368,21 +1357,21 @@ goto CLEANUP
     def show_about(self):
         self.blurred(
             QMessageBox.about, self, APP_NAME,
-            f"<h3 style='color:{theme.T['TEXT']};margin-bottom:4px;'>{APP_NAME}</h3>"
-            f"<p style='color:{theme.T['MUTED']};margin-top:0;'>{VERSION} · Monolith Studio Architecture</p>"
-            "<p>• Giao diện tối giản chuẩn Zed / Cursor.<br>"
-            "• Hỗ trợ HTML Live Preview, Python, Batch, C/C++, Rust, Go, JS, TS, Shell.<br>"
-            "• Đổi giao diện UI/UX trực tiếp (Obsidian, Tokyo Night, One Dark, Monokai).<br>"
-            "• Quản lý Workspace & Virtual Environments tích hợp sẵn.</p>"
-            f"<p style='color:{theme.T['MUTED']};'>By <b>{CREDIT}</b></p>"
+            f"<h3 style='color:{theme.T['BORDER_ACTIVE']};margin-bottom:4px;'>{APP_NAME} <span style='font-size:9pt;color:{theme.T['MUTED']};'>{VERSION}</span></h3>"
+            f"<p style='color:{theme.T['MUTED']};margin-top:0;'>Official Distribution · Monolith Studio Engine</p>"
+            "<p>• Minimalist desktop development studio.<br>"
+            "• Integrated Git Clone, Environment Manager & Terminal.<br>"
+            "• Instant Browser HTML Live Preview (Ctrl+B).<br>"
+            "• Zero-lag syntax highlighting for Python, C/C++, Rust, JS/TS, Batch, Shell.</p>"
+            f"<p style='color:{theme.T['MUTED']};'>Author: <b>{CREDIT}</b></p>"
         )
 
     def closeEvent(self, event):
         dirty = any(self.tab_widget.widget(i).isModified() for i in range(self.tab_widget.count()))
         if dirty:
             res = self.blurred(
-                QMessageBox.question, self, "Quit",
-                "You have unsaved files. Do you want to quit?",
+                QMessageBox.question, self, "Unsaved Work",
+                "You have unsaved modifications. Do you want to exit?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )

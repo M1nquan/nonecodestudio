@@ -1,7 +1,6 @@
 import os
 import sys
 
-# Đảm bảo đường dẫn module được nhận diện chuẩn xác
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from PyQt6.QtCore import QTimer
@@ -23,7 +22,6 @@ if __name__ == "__main__":
     window.raise_()
     window.activateWindow()
 
-    # Xử lý Open With từ Windows
     if len(sys.argv) > 1:
         target_file = sys.argv[1]
         if os.path.isfile(target_file):

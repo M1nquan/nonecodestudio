@@ -53,7 +53,6 @@ class CodeEditor(QsciScintilla):
         self.setColor(QColor(T["TEXT"]))
 
     def _apply_base_lexer_style(self, lexer):
-        """Ép nền đen và toàn bộ chữ sang màu sáng trắng dịu trước, chống hoàn toàn hiện tượng đen chữ."""
         T = theme.T
         default_fg = QColor(T["TEXT"])
         default_bg = QColor(T["EDITOR"])
@@ -63,7 +62,6 @@ class CodeEditor(QsciScintilla):
         lexer.setDefaultColor(default_fg)
         lexer.setFont(base_font)
 
-        # Quét sạch 128 style IDs của Scintilla để không một token nào bị mang màu đen mặc định
         for s in range(128):
             lexer.setPaper(default_bg, s)
             lexer.setColor(default_fg, s)
@@ -90,10 +88,8 @@ class CodeEditor(QsciScintilla):
             for exts, cls in mapping.items():
                 if ext in exts:
                     lexer = cls(self)
-                    # 1. Ép toàn bộ 128 style sáng rõ trước
                     self._apply_base_lexer_style(lexer)
 
-                    # 2. Tuỳ biến từng ngôn ngữ cụ thể
                     if ext in (".bat", ".cmd"):
                         batch_style_ids = {
                             0: T["TEXT"], 1: T["MUTED"], 2: T["WARN"],
@@ -104,32 +100,31 @@ class CodeEditor(QsciScintilla):
                             lexer.setColor(QColor(col), s)
 
                     elif ext in (".css", ".scss", ".less"):
-                        # Fix chuẩn theo Style ID của Scintilla LexCSS (0 -> 25)
                         css_styles = {
-                            0: T["TEXT"],        # Default Text
-                            1: T["ACCENT"],      # Tag (div, body, html...)
-                            2: "#60a5fa",        # Class (.btn, .header...)
-                            3: "#c084fc",        # PseudoClass (:hover, :active...)
-                            4: "#f472b6",        # Unknown PseudoClass
-                            5: "#93c5fd",        # Operator ({, }, :, ;, ,)
-                            6: "#94a3b8",        # Identifier
-                            7: "#93c5fd",        # Unknown Property
-                            8: T["OK"],          # Value (10px, bold, center...)
-                            9: T["MUTED"],       # Comment (/* ... */)
-                            10: "#c084fc",       # ID Selector (#app...)
-                            11: T["WARN"],       # Important (!important)
-                            12: "#38bdf8",       # Directive (@media, @import...)
-                            13: "#fb923c",       # Double Quoted String
-                            14: "#fb923c",       # Single Quoted String
-                            15: "#60a5fa",       # CSS1 Property
-                            16: "#60a5fa",       # CSS2 Property
-                            17: "#60a5fa",       # CSS3 Property
-                            18: "#f472b6",       # PseudoElement (::before, ::after)
-                            19: "#38bdf8",       # Extended CSS Property
-                            20: "#38bdf8",       # Extended PseudoClass
-                            21: "#38bdf8",       # Extended PseudoElement
-                            22: "#38bdf8",       # Media Rule
-                            23: "#94a3b8",       # Variable (--primary, --border...)
+                            0: T["TEXT"],
+                            1: T["ACCENT"],
+                            2: "#60a5fa",
+                            3: "#c084fc",
+                            4: "#f472b6",
+                            5: "#93c5fd",
+                            6: "#94a3b8",
+                            7: "#93c5fd",
+                            8: T["OK"],
+                            9: T["MUTED"],
+                            10: "#c084fc",
+                            11: T["WARN"],
+                            12: "#38bdf8",
+                            13: "#fb923c",
+                            14: "#fb923c",
+                            15: "#60a5fa",
+                            16: "#60a5fa",
+                            17: "#60a5fa",
+                            18: "#f472b6",
+                            19: "#38bdf8",
+                            20: "#38bdf8",
+                            21: "#38bdf8",
+                            22: "#38bdf8",
+                            23: "#94a3b8",
                         }
                         for s, col in css_styles.items():
                             lexer.setColor(QColor(col), s)

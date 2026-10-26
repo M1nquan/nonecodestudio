@@ -1,170 +1,506 @@
 import os
 from PyQt6.QtCore import Qt, QPointF, QRectF, QStandardPaths
 from PyQt6.QtGui import (
-    QBrush, QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap, QPolygonF
+    QBrush, QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap, QPolygonF, QLinearGradient
 )
 
 ORG = "none"
-APP_NAME = "none code studio"
+APP_NAME = "None Code Studio"
+APP_SUB = "v0.4b"
 BROWSE = "__browse__"
-CREDIT = "none"
-VERSION = "ver 0.3b"
+CREDIT = "M1nquan"
+VERSION = "v0.4b"
 
 THEMES = {
-    "Deep Obsidian": {
-        "BG": "#090a0f", "PANEL": "#0d0e15", "EDITOR": "#0b0c12",
-        "SURFACE": "#131520", "SURFACE_HOVER": "#1a1d2e", "BORDER": "#191c2b",
-        "BORDER_ACTIVE": "#282d44", "TEXT": "#e2e8f0", "MUTED": "#64748b",
-        "SUBTLE": "#334155", "PRIMARY": "#f8fafc", "PRIMARY_FG": "#090a0f",
-        "ACCENT": "#38bdf8", "OK": "#10b981", "ERR": "#f43f5e", "WARN": "#fbbf24",
+    "Aerogel Obsidian": {
+        "BG": "rgba(9, 10, 15, 0.75)",
+        "PANEL": "rgba(13, 14, 21, 0.70)",
+        "EDITOR": "rgba(11, 12, 18, 0.65)",
+        "SURFACE": "rgba(19, 21, 32, 0.60)",
+        "SURFACE_HOVER": "rgba(26, 29, 46, 0.75)",
+        "BORDER": "rgba(40, 45, 68, 0.45)",
+        "BORDER_ACTIVE": "#38bdf8",
+        "TEXT": "#e2e8f0",
+        "MUTED": "#64748b",
+        "SUBTLE": "#334155",
+        "PRIMARY": "#38bdf8",
+        "PRIMARY_FG": "#090a0f",
+        "ACCENT": "#818cf8",
+        "OK": "#10b981",
+        "ERR": "#f43f5e",
+        "WARN": "#fbbf24",
+    },
+    "Cyber Neon": {
+        "BG": "rgba(4, 5, 10, 0.78)",
+        "PANEL": "rgba(7, 9, 19, 0.72)",
+        "EDITOR": "rgba(5, 6, 13, 0.68)",
+        "SURFACE": "rgba(13, 17, 36, 0.65)",
+        "SURFACE_HOVER": "rgba(23, 30, 61, 0.80)",
+        "BORDER": "rgba(26, 34, 74, 0.50)",
+        "BORDER_ACTIVE": "#00f0ff",
+        "TEXT": "#e0f2fe",
+        "MUTED": "#7081b9",
+        "SUBTLE": "#2d386b",
+        "PRIMARY": "#00f0ff",
+        "PRIMARY_FG": "#02040a",
+        "ACCENT": "#ff007f",
+        "OK": "#00ff9f",
+        "ERR": "#ff2a6d",
+        "WARN": "#ffe600",
+    },
+    "Hyper Violet": {
+        "BG": "rgba(7, 3, 15, 0.78)",
+        "PANEL": "rgba(12, 6, 26, 0.72)",
+        "EDITOR": "rgba(8, 4, 18, 0.68)",
+        "SURFACE": "rgba(23, 12, 48, 0.65)",
+        "SURFACE_HOVER": "rgba(39, 21, 82, 0.80)",
+        "BORDER": "rgba(47, 22, 97, 0.50)",
+        "BORDER_ACTIVE": "#bd00ff",
+        "TEXT": "#f5f3ff",
+        "MUTED": "#8b76bd",
+        "SUBTLE": "#42247a",
+        "PRIMARY": "#bd00ff",
+        "PRIMARY_FG": "#07030f",
+        "ACCENT": "#00f5ff",
+        "OK": "#10b981",
+        "ERR": "#ff0055",
+        "WARN": "#ffb703",
     },
     "Tokyo Night": {
-        "BG": "#1a1b26", "PANEL": "#16161e", "EDITOR": "#1a1b26",
-        "SURFACE": "#24283b", "SURFACE_HOVER": "#2f354f", "BORDER": "#292e42",
-        "BORDER_ACTIVE": "#3d59a1", "TEXT": "#c0caf5", "MUTED": "#787c99",
-        "SUBTLE": "#414868", "PRIMARY": "#7aa2f7", "PRIMARY_FG": "#15161e",
-        "ACCENT": "#7dcfff", "OK": "#9ece6a", "ERR": "#f7768e", "WARN": "#e0af68",
-    },
-    "One Dark Pro": {
-        "BG": "#21252b", "PANEL": "#1e2227", "EDITOR": "#282c34",
-        "SURFACE": "#2c313a", "SURFACE_HOVER": "#3e4451", "BORDER": "#181a1f",
-        "BORDER_ACTIVE": "#4b5263", "TEXT": "#abb2bf", "MUTED": "#5c6370",
-        "SUBTLE": "#4b5263", "PRIMARY": "#61afef", "PRIMARY_FG": "#1e2227",
-        "ACCENT": "#56b6c2", "OK": "#98c379", "ERR": "#e06c75", "WARN": "#e5c07b",
-    },
-    "Monokai Pro": {
-        "BG": "#221f22", "PANEL": "#19181a", "EDITOR": "#2d2a2e",
-        "SURFACE": "#3a373b", "SURFACE_HOVER": "#4a474b", "BORDER": "#19181a",
-        "BORDER_ACTIVE": "#5b595c", "TEXT": "#fcfcfa", "MUTED": "#727072",
-        "SUBTLE": "#403e41", "PRIMARY": "#ffd866", "PRIMARY_FG": "#221f22",
-        "ACCENT": "#a9dc76", "OK": "#a9dc76", "ERR": "#ff6188", "WARN": "#fc9867",
+        "BG": "rgba(26, 27, 38, 0.75)",
+        "PANEL": "rgba(22, 22, 30, 0.70)",
+        "EDITOR": "rgba(26, 27, 38, 0.65)",
+        "SURFACE": "rgba(36, 40, 59, 0.60)",
+        "SURFACE_HOVER": "rgba(47, 53, 79, 0.75)",
+        "BORDER": "rgba(41, 46, 66, 0.50)",
+        "BORDER_ACTIVE": "#7aa2f7",
+        "TEXT": "#c0caf5",
+        "MUTED": "#787c99",
+        "SUBTLE": "#414868",
+        "PRIMARY": "#7aa2f7",
+        "PRIMARY_FG": "#15161e",
+        "ACCENT": "#7dcfff",
+        "OK": "#9ece6a",
+        "ERR": "#f7768e",
+        "WARN": "#e0af68",
     }
 }
 
-CURRENT_THEME_NAME = "Deep Obsidian"
+CURRENT_THEME_NAME = "Aerogel Obsidian"
 T = dict(THEMES[CURRENT_THEME_NAME])
 
 EDITOR_PALETTE = [
-    ("comment", "#64748b"), ("string", "#86efac"), ("keyword", "#c084fc"),
-    ("number", "#fb923c"), ("class", "#38bdf8"), ("function", "#60a5fa"),
-    ("preprocessor", "#f472b6"), ("tag", "#38bdf8"), ("attribute", "#93c5fd"),
-    ("identifier", "#cbd5e1"), ("operator", "#94a3b8"),
+    ("comment", "#64748b"), ("string", "#10b981"), ("keyword", "#818cf8"),
+    ("number", "#fbbf24"), ("class", "#38bdf8"), ("function", "#67e8f9"),
+    ("preprocessor", "#f43f5e"), ("tag", "#38bdf8"), ("attribute", "#c084fc"),
+    ("identifier", "#e2e8f0"), ("operator", "#38bdf8"),
 ]
 
 STYLE_TEMPLATE = """
 QWidget {
     color: @TEXT@;
-    font-family: 'Segoe UI Variable Text', 'Inter', 'Segoe UI', -apple-system, sans-serif;
+    font-family: 'Segoe UI Variable Text', 'Consolas', 'Inter', -apple-system, sans-serif;
     font-size: 9.5pt;
 }
-QMainWindow, QWidget#central { background: @BG@; }
-QDialog { background: @PANEL@; border: 1px solid @BORDER_ACTIVE@; border-radius: 8px; }
+QMainWindow {
+    background: transparent;
+}
+QWidget#central {
+    background: @BG@;
+    border: 1px solid @BORDER@;
+    border-radius: 12px;
+}
+QDialog {
+    background: @PANEL@;
+    border: 1.5px solid @BORDER_ACTIVE@;
+    border-radius: 10px;
+}
 QToolTip {
-    background: @SURFACE@; color: @TEXT@; border: 1px solid @BORDER_ACTIVE@;
-    padding: 5px 9px; border-radius: 4px; font-size: 8.5pt;
+    background: @SURFACE@;
+    color: @TEXT@;
+    border: 1px solid @BORDER_ACTIVE@;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 8.5pt;
 }
-QWidget#customTitleBar { background: @BG@; border-bottom: 1px solid @BORDER@; }
+QWidget#customTitleBar {
+    background: transparent;
+    border-bottom: 1px solid @BORDER@;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
 QToolButton#windowBtn, QToolButton#windowCloseBtn {
-    background: transparent; color: @MUTED@; border: none; padding: 0px 14px; font-size: 9pt; font-weight: 600;
+    background: transparent;
+    color: @MUTED@;
+    border: none;
+    padding: 0px 14px;
+    font-size: 9pt;
+    font-weight: 700;
 }
-QToolButton#windowBtn:hover { background: @SURFACE@; color: @TEXT@; }
-QToolButton#windowCloseBtn:hover { background: @ERR@; color: #ffffff; }
-
+QToolButton#windowBtn:hover {
+    background: @SURFACE@;
+    color: @TEXT@;
+}
+QToolButton#windowCloseBtn:hover {
+    background: @ERR@;
+    color: #ffffff;
+    border-top-right-radius: 11px;
+}
 QMenuBar {
-    background: @BG@; color: @MUTED@; padding: 2px 6px; border-bottom: 1px solid @BORDER@; font-size: 8.5pt;
+    background: transparent;
+    color: @MUTED@;
+    padding: 3px 6px;
+    border-bottom: 1px solid @BORDER@;
+    font-size: 8.5pt;
 }
-QMenuBar::item { padding: 4px 8px; border-radius: 4px; background: transparent; }
-QMenuBar::item:selected { background: @SURFACE@; color: @TEXT@; }
-QMenu { background: @SURFACE@; border: 1px solid @BORDER_ACTIVE@; border-radius: 6px; padding: 4px; }
-QMenu::item { padding: 5px 20px 5px 10px; border-radius: 4px; color: @TEXT@; }
-QMenu::item:selected { background: @SURFACE_HOVER@; color: #ffffff; }
-QMenu::separator { height: 1px; background: @BORDER@; margin: 4px 6px; }
-
-QToolBar { background: @BG@; border: none; border-bottom: 1px solid @BORDER@; padding: 3px 8px; spacing: 5px; }
-QToolBar::separator { width: 1px; background: @BORDER@; margin: 4px; }
-
+QMenuBar::item {
+    padding: 4px 9px;
+    border-radius: 4px;
+    background: transparent;
+}
+QMenuBar::item:selected {
+    background: @SURFACE@;
+    color: @TEXT@;
+}
+QMenu {
+    background: @PANEL@;
+    border: 1px solid @BORDER_ACTIVE@;
+    border-radius: 6px;
+    padding: 4px;
+}
+QMenu::item {
+    padding: 6px 20px 6px 12px;
+    border-radius: 4px;
+    color: @TEXT@;
+}
+QMenu::item:selected {
+    background: @SURFACE_HOVER@;
+    color: #ffffff;
+}
+QMenu::separator {
+    height: 1px;
+    background: @BORDER@;
+    margin: 4px 6px;
+}
+QToolBar {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid @BORDER@;
+    padding: 4px 8px;
+    spacing: 6px;
+}
+QToolBar::separator {
+    width: 1px;
+    background: @BORDER@;
+    margin: 4px;
+}
 QToolButton, QPushButton {
-    background: @SURFACE@; color: @TEXT@; border: 1px solid @BORDER@;
-    border-radius: 5px; padding: 4px 10px; font-weight: 500; font-size: 8.5pt;
+    background: @SURFACE@;
+    color: @TEXT@;
+    border: 1px solid @BORDER@;
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-weight: 500;
+    font-size: 8.5pt;
 }
-QToolButton { background: transparent; color: @MUTED@; border-color: transparent; }
-QToolButton:hover, QPushButton:hover { color: @TEXT@; background: @SURFACE_HOVER@; border-color: @BORDER_ACTIVE@; }
-QToolButton:pressed, QPushButton:pressed { background: @BORDER_ACTIVE@; }
-QToolButton:disabled, QPushButton:disabled { color: @SUBTLE@; border-color: transparent; }
-
+QToolButton {
+    background: transparent;
+    color: @MUTED@;
+    border-color: transparent;
+}
+QToolButton:hover, QPushButton:hover {
+    color: @TEXT@;
+    background: @SURFACE_HOVER@;
+    border-color: @BORDER_ACTIVE@;
+}
+QToolButton:pressed, QPushButton:pressed {
+    background: @BORDER_ACTIVE@;
+    color: @PRIMARY_FG@;
+}
+QToolButton:disabled, QPushButton:disabled {
+    color: @SUBTLE@;
+    border-color: transparent;
+}
 QToolButton#primary, QPushButton#primary {
-    background-color: @PRIMARY@; color: @PRIMARY_FG@; border: 1px solid @PRIMARY@;
-    border-radius: 5px; padding: 4px 14px; font-weight: 700;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 @PRIMARY@, stop:1 @ACCENT@);
+    color: @PRIMARY_FG@;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 6px;
+    padding: 4px 15px;
+    font-weight: 700;
 }
-QToolButton#primary:hover, QPushButton#primary:hover { background-color: #ffffff; color: #000000; border-color: #ffffff; }
-
+QToolButton#primary:hover, QPushButton#primary:hover {
+    background: #ffffff;
+    color: #000000;
+    border-color: #ffffff;
+}
 QToolButton#danger, QPushButton#danger {
-    background: transparent; color: @ERR@; border: 1px solid transparent; border-radius: 5px; padding: 4px 10px; font-weight: 600;
+    background: transparent;
+    color: @ERR@;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-weight: 600;
 }
-QToolButton#danger:hover, QPushButton#danger:hover { background: rgba(244, 63, 94, 0.16); color: #ff6b81; border-color: @ERR@; }
-
+QToolButton#danger:hover, QPushButton#danger:hover {
+    background: rgba(244, 63, 94, 0.20);
+    color: #ff6b81;
+    border-color: @ERR@;
+}
 QComboBox#themeSelector, QComboBox#runtimePill {
-    background: @SURFACE@; color: @TEXT@; border: 1px solid @BORDER@; border-radius: 5px; padding: 2px 8px; font-size: 8.5pt;
+    background: @SURFACE@;
+    color: @TEXT@;
+    border: 1px solid @BORDER@;
+    border-radius: 6px;
+    padding: 2px 10px;
+    font-size: 8.5pt;
+    font-weight: 600;
 }
-QComboBox#themeSelector:hover, QComboBox#runtimePill:hover { border-color: @BORDER_ACTIVE@; }
-QComboBox::drop-down { border: none; width: 16px; }
-QComboBox::down-arrow { image: url(@CHEV_D@); width: 8px; height: 8px; }
+QComboBox#themeSelector:hover, QComboBox#runtimePill:hover {
+    border-color: @BORDER_ACTIVE@;
+}
+QComboBox::drop-down {
+    border: none;
+    width: 16px;
+}
+QComboBox::down-arrow {
+    image: url(@CHEV_D@);
+    width: 8px;
+    height: 8px;
+}
 QComboBox QAbstractItemView {
-    background: @SURFACE@; color: @TEXT@; border: 1px solid @BORDER_ACTIVE@;
-    border-radius: 4px; outline: 0; padding: 3px; selection-background-color: @SURFACE_HOVER@;
+    background: @PANEL@;
+    color: @TEXT@;
+    border: 1px solid @BORDER_ACTIVE@;
+    border-radius: 6px;
+    outline: 0;
+    padding: 4px;
+    selection-background-color: @SURFACE_HOVER@;
 }
-
-QFrame#sidebar { background: @PANEL@; border-right: 1px solid @BORDER@; }
-QLabel#sidebarTitle { color: @SUBTLE@; font-size: 7.5pt; font-weight: 700; letter-spacing: 1.2px; padding: 10px 12px 2px 12px; }
-QLabel#wsName { color: @TEXT@; font-weight: 600; font-size: 9pt; padding: 0 12px 6px 12px; }
-QTreeView { background: transparent; border: none; outline: 0; padding: 2px 4px; color: @MUTED@; font-size: 9pt; }
-QTreeView::item { padding: 3px 6px; border-radius: 4px; margin: 1px 0; }
-QTreeView::item:hover { background: @SURFACE@; color: @TEXT@; }
-QTreeView::item:selected { background: @SURFACE_HOVER@; color: #ffffff; }
-
-QTabWidget { border: none; background: @BG@; }
-QTabWidget::pane { border: none; background: @EDITOR@; }
-QTabBar { background: @BG@; border: none; qproperty-drawBase: 0; }
-QTabBar::tab { background: @BG@; color: @MUTED@; padding: 6px 14px; margin: 0; border-right: 1px solid @BORDER@; border-top: 2px solid transparent; font-size: 8.5pt; }
-QTabBar::tab:selected { background: @EDITOR@; color: @TEXT@; border-top: 2px solid @ACCENT@; font-weight: 600; }
-QTabBar::tab:hover:!selected { background: @PANEL@; color: @TEXT@; }
-QTabBar::close-button { image: url(@CLOSE_N@); subcontrol-position: right; margin-left: 4px; }
-QTabBar::close-button:hover { image: url(@CLOSE_H@); background: @SURFACE_HOVER@; border-radius: 2px; }
-
-QToolButton#tabPlusBtn { background: @BG@; border: none; border-left: 1px solid @BORDER@; border-radius: 0px; padding: 4px 8px; }
-QToolButton#tabPlusBtn:hover { background: @SURFACE_HOVER@; }
-
-QFrame#findBar { background: @SURFACE@; border: 1px solid @BORDER_ACTIVE@; border-radius: 6px; margin: 4px 8px; }
-QLineEdit { background: @SURFACE@; border: 1px solid @BORDER@; border-radius: 4px; padding: 4px 8px; color: @TEXT@; }
-QLineEdit:focus { border-color: @ACCENT@; }
-
-QFrame#termPanel { background: @PANEL@; border-top: 1px solid @BORDER@; }
-QWidget#cardHeader { background: @BG@; border-bottom: 1px solid @BORDER@; }
-QLabel#termTitle { color: @SUBTLE@; font-size: 7.5pt; font-weight: 700; letter-spacing: 1px; }
-QTextEdit#termOut { background: @EDITOR@; color: #e2e8f0; border: none; padding: 6px 10px; font-family: 'Consolas', monospace; font-size: 9pt; }
-QLineEdit#termIn { background: @SURFACE@; border: 1px solid @BORDER@; border-radius: 4px; margin: 4px 8px 6px 8px; font-family: 'Consolas', monospace; padding: 4px 8px; font-size: 8.5pt; }
-
-QStatusBar { background: @BG@; color: @MUTED@; min-height: 22px; border-top: 1px solid @BORDER@; }
-QStatusBar QLabel { color: @MUTED@; font-size: 8pt; padding: 0 6px; }
-QLabel#statusPill { background: @SURFACE@; color: @TEXT@; border: 1px solid @BORDER@; border-radius: 3px; padding: 1px 6px; font-weight: 600; }
-
-QSplitter::handle { background: @BORDER@; }
-QSplitter::handle:horizontal { width: 1px; }
-QSplitter::handle:vertical { height: 1px; }
-
-QScrollBar:vertical { background: @EDITOR@; width: 6px; margin: 0; border: none; }
-QScrollBar::handle:vertical { background: #1e2436; border-radius: 3px; min-height: 20px; }
-QScrollBar::handle:vertical:hover { background: #334155; }
-
-QScrollBar:horizontal { background: @EDITOR@; height: 6px; margin: 0; border: none; }
-QScrollBar::handle:horizontal { background: #1e2436; border-radius: 3px; min-width: 20px; }
-QScrollBar::handle:horizontal:hover { background: #334155; }
-
-QFrame#splashCard { background: @PANEL@; border: 1px solid @BORDER_ACTIVE@; border-radius: 12px; }
-QLabel#title { color: @TEXT@; font-size: 15px; font-weight: 700; }
-QLabel#splashBadge { color: @MUTED@; font-size: 8pt; font-weight: 500; }
-QProgressBar { background: @SURFACE@; border: none; border-radius: 1px; }
-QProgressBar::chunk { border-radius: 1px; background: @ACCENT@; }
+QFrame#sidebar {
+    background: @PANEL@;
+    border-right: 1px solid @BORDER@;
+}
+QLabel#sidebarTitle {
+    color: @SUBTLE@;
+    font-size: 7.5pt;
+    font-weight: 800;
+    letter-spacing: 1.4px;
+    padding: 10px 12px 2px 12px;
+}
+QLabel#wsName {
+    color: @TEXT@;
+    font-weight: 700;
+    font-size: 9pt;
+    padding: 0 12px 6px 12px;
+}
+QTreeView {
+    background: transparent;
+    border: none;
+    outline: 0;
+    padding: 2px 4px;
+    color: @MUTED@;
+    font-size: 9pt;
+}
+QTreeView::item {
+    padding: 4px 6px;
+    border-radius: 5px;
+    margin: 1px 0;
+}
+QTreeView::item:hover {
+    background: @SURFACE@;
+    color: @TEXT@;
+}
+QTreeView::item:selected {
+    background: @SURFACE_HOVER@;
+    color: #ffffff;
+    border-left: 2px solid @BORDER_ACTIVE@;
+}
+QTabWidget {
+    border: none;
+    background: transparent;
+}
+QTabWidget::pane {
+    border: none;
+    background: @EDITOR@;
+}
+QTabBar {
+    background: transparent;
+    border: none;
+    qproperty-drawBase: 0;
+}
+QTabBar::tab {
+    background: transparent;
+    color: @MUTED@;
+    padding: 7px 16px;
+    margin: 0;
+    border-right: 1px solid @BORDER@;
+    border-top: 2px solid transparent;
+    font-size: 8.5pt;
+    font-weight: 600;
+}
+QTabBar::tab:selected {
+    background: @EDITOR@;
+    color: @TEXT@;
+    border-top: 2.5px solid @BORDER_ACTIVE@;
+    font-weight: 700;
+}
+QTabBar::tab:hover:!selected {
+    background: @SURFACE@;
+    color: @TEXT@;
+}
+QTabBar::close-button {
+    image: url(@CLOSE_N@);
+    subcontrol-position: right;
+    margin-left: 4px;
+}
+QTabBar::close-button:hover {
+    image: url(@CLOSE_H@);
+    background: @SURFACE_HOVER@;
+    border-radius: 2px;
+}
+QToolButton#tabPlusBtn {
+    background: transparent;
+    border: none;
+    border-left: 1px solid @BORDER@;
+    padding: 4px 10px;
+}
+QToolButton#tabPlusBtn:hover {
+    background: @SURFACE_HOVER@;
+}
+QFrame#findBar {
+    background: @SURFACE@;
+    border: 1px solid @BORDER_ACTIVE@;
+    border-radius: 6px;
+    margin: 4px 8px;
+}
+QLineEdit {
+    background: @SURFACE@;
+    border: 1px solid @BORDER@;
+    border-radius: 5px;
+    padding: 4px 8px;
+    color: @TEXT@;
+}
+QLineEdit:focus {
+    border-color: @BORDER_ACTIVE@;
+}
+QFrame#termPanel {
+    background: @PANEL@;
+    border-top: 1px solid @BORDER@;
+}
+QWidget#cardHeader {
+    background: transparent;
+    border-bottom: 1px solid @BORDER@;
+}
+QLabel#termTitle {
+    color: @SUBTLE@;
+    font-size: 7.5pt;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+}
+QTextEdit#termOut {
+    background: @EDITOR@;
+    color: #e2e8f0;
+    border: none;
+    padding: 6px 10px;
+    font-family: 'Consolas', monospace;
+    font-size: 9pt;
+}
+QLineEdit#termIn {
+    background: @SURFACE@;
+    border: 1px solid @BORDER@;
+    border-radius: 5px;
+    margin: 4px 8px 6px 8px;
+    font-family: 'Consolas', monospace;
+    padding: 4px 8px;
+    font-size: 8.5pt;
+    color: @TEXT@;
+}
+QLineEdit#termIn:focus {
+    border-color: @BORDER_ACTIVE@;
+}
+QStatusBar {
+    background: transparent;
+    color: @MUTED@;
+    min-height: 24px;
+    border-top: 1px solid @BORDER@;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+QStatusBar QLabel {
+    color: @MUTED@;
+    font-size: 8pt;
+    padding: 0 6px;
+}
+QLabel#statusPill {
+    background: @SURFACE@;
+    color: @TEXT@;
+    border: 1px solid @BORDER@;
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-weight: 600;
+}
+QSplitter::handle {
+    background: @BORDER@;
+}
+QSplitter::handle:horizontal {
+    width: 1px;
+}
+QSplitter::handle:vertical {
+    height: 1px;
+}
+QScrollBar:vertical {
+    background: transparent;
+    width: 6px;
+    margin: 0;
+    border: none;
+}
+QScrollBar::handle:vertical {
+    background: @SURFACE_HOVER@;
+    border-radius: 3px;
+    min-height: 20px;
+}
+QScrollBar::handle:vertical:hover {
+    background: @BORDER_ACTIVE@;
+}
+QScrollBar:horizontal {
+    background: transparent;
+    height: 6px;
+    margin: 0;
+    border: none;
+}
+QScrollBar::handle:horizontal {
+    background: @SURFACE_HOVER@;
+    border-radius: 3px;
+    min-width: 20px;
+}
+QScrollBar::handle:horizontal:hover {
+    background: @BORDER_ACTIVE@;
+}
+QFrame#splashCard {
+    background: @PANEL@;
+    border: 1.5px solid @BORDER_ACTIVE@;
+    border-radius: 14px;
+}
+QLabel#title {
+    color: @TEXT@;
+    font-size: 17px;
+    font-weight: 800;
+}
+QLabel#splashBadge {
+    color: @MUTED@;
+    font-size: 8.5pt;
+    font-weight: 600;
+}
+QProgressBar {
+    background: @SURFACE@;
+    border: 1px solid @BORDER@;
+    border-radius: 2px;
+}
+QProgressBar::chunk {
+    border-radius: 2px;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 @PRIMARY@, stop:1 @ACCENT@);
+}
 """
 
 def set_theme(name):
@@ -200,9 +536,12 @@ def draw_vector_icon(kind, color, size=14):
         p.drawLine(QPointF(s * 0.5, s * 0.38), QPointF(s * 0.72, s * 0.60))
     elif kind == "play":
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QBrush(QColor(color)))
+        grad = QLinearGradient(0, 0, s, s)
+        grad.setColorAt(0, QColor(T["PRIMARY"]))
+        grad.setColorAt(1, QColor(T["ACCENT"]))
+        p.setBrush(QBrush(grad))
         p.drawPolygon(QPolygonF([
-            QPointF(s * 0.28, s * 0.20), QPointF(s * 0.78, s * 0.50), QPointF(s * 0.28, s * 0.80),
+            QPointF(s * 0.28, s * 0.20), QPointF(s * 0.80, s * 0.50), QPointF(s * 0.28, s * 0.80),
         ]))
     elif kind == "stop":
         p.setPen(Qt.PenStyle.NoPen)
@@ -247,9 +586,13 @@ def vicon(kind, color=None, size=14):
     return QIcon(draw_vector_icon(kind, color or T["MUTED"], size))
 
 def make_style_assets():
-    base = os.path.join(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.TempLocation), "none_studio_assets_v2")
+    base = os.path.join(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.TempLocation), "ncs_v04b_assets")
     os.makedirs(base, exist_ok=True)
-    assets = {"CLOSE_N": ("close", T["MUTED"], 12), "CLOSE_H": ("close", T["TEXT"], 12), "CHEV_D": ("chev_down", T["MUTED"], 10)}
+    assets = {
+        "CLOSE_N": ("close", T["MUTED"], 12),
+        "CLOSE_H": ("close", T["TEXT"], 12),
+        "CHEV_D": ("chev_down", T["MUTED"], 10)
+    }
     out = {}
     for key, (kind, col, sz) in assets.items():
         path = os.path.join(base, f"{CURRENT_THEME_NAME}_{key.lower()}.png")
@@ -271,29 +614,33 @@ def make_logo(size=48):
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-    rect = QRectF(1.0, 1.0, size - 2.0, size - 2.0)
+    rect = QRectF(1.5, 1.5, size - 3.0, size - 3.0)
     path = QPainterPath()
-    path.addRoundedRect(rect, size * 0.25, size * 0.25)
-    p.fillPath(path, QBrush(QColor(T["SURFACE"])))
+    path.addRoundedRect(rect, size * 0.26, size * 0.26)
+    
+    grad = QLinearGradient(0, 0, size, size)
+    grad.setColorAt(0, QColor(T["SURFACE"]))
+    grad.setColorAt(1, QColor(T["PANEL"]))
+    p.fillPath(path, QBrush(grad))
 
     pen = QPen(QColor(T["BORDER_ACTIVE"]))
-    pen.setWidthF(1.2)
+    pen.setWidthF(1.4)
     p.setPen(pen)
     p.drawPath(path)
 
-    cli_pen = QPen(QColor(T["ACCENT"]))
+    cli_pen = QPen(QColor(T["PRIMARY"]))
     cli_pen.setWidthF(max(2.0, size * 0.08))
     cli_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
     cli_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
     p.setPen(cli_pen)
-    p.drawLine(QPointF(size * 0.30, size * 0.34), QPointF(size * 0.46, size * 0.50))
-    p.drawLine(QPointF(size * 0.46, size * 0.50), QPointF(size * 0.30, size * 0.66))
+    p.drawLine(QPointF(size * 0.28, size * 0.32), QPointF(size * 0.44, size * 0.50))
+    p.drawLine(QPointF(size * 0.44, size * 0.50), QPointF(size * 0.28, size * 0.68))
 
-    under_pen = QPen(QColor(T["PRIMARY"]))
+    under_pen = QPen(QColor(T["ACCENT"]))
     under_pen.setWidthF(max(2.0, size * 0.08))
     under_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
     p.setPen(under_pen)
-    p.drawLine(QPointF(size * 0.54, size * 0.66), QPointF(size * 0.70, size * 0.66))
+    p.drawLine(QPointF(size * 0.52, size * 0.68), QPointF(size * 0.72, size * 0.68))
     p.end()
     return pm
 
@@ -301,7 +648,7 @@ def gaussian_blur(pix, radius=10):
     if pix.isNull():
         return pix
     img = pix.toImage()
-    w, h = max(1, img.width() // 6), max(1, img.height() // 6)
+    w, h = max(1, img.width() // 5), max(1, img.height() // 5)
     small = img.scaled(w, h, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
     blurred = small.scaled(img.width(), img.height(), Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
     return QPixmap.fromImage(blurred)
