@@ -10,7 +10,7 @@ import urllib.request
 from PyQt6.QtCore import (
     Qt, QProcess, QProcessEnvironment, QDir, QUrl, QSettings,
     QPropertyAnimation, QParallelAnimationGroup, QEasingCurve,
-    QSize, QPoint, QThread, pyqtSignal, QTimer
+    QSize, QPoint, QRect, QThread, pyqtSignal, QTimer
 )
 from PyQt6.QtGui import (
     QAction, QDesktopServices, QIcon, QKeySequence, QShortcut,
@@ -20,17 +20,34 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QTabWidget,
     QTreeView, QTextEdit, QFileDialog, QMessageBox, QLabel, QToolBar,
     QToolButton, QFrame, QMenu, QLineEdit, QComboBox, QInputDialog,
-    QAbstractItemView, QSizePolicy, QProgressDialog, QApplication,
-    QGraphicsOpacityEffect
+    QAbstractItemView, QSizePolicy, QProgressDialog, QApplication
 )
 
 import app_theme as theme
 from app_theme import ORG, APP_NAME, APP_SUB, BROWSE, CREDIT, VERSION, T
 from workers import venv_python, venv_root_of, find_venvs
 from editor import CodeEditor
-from widgets import Overlay, Toast
+from widgets import Overlay, Toast, MusicWatermark, AnimatedWindowButton
 from dialogs import CloneDialog, VenvDialog
+import ctypes
+from ctypes import wintypes
 
+def set_click_through(hwnd, enable=True):
+    if os.name != "nt":
+        return
+    GWL_EXSTYLE = -20
+    WS_EX_TRANSPARENT = 0x00000020
+    WS_EX_LAYERED = 0x00080000
+
+    GetWindowLong = ctypes.windll.user32.GetWindowLongW
+    SetWindowLong = ctypes.windll.user32.SetWindowLongW
+
+    style = GetWindowLong(hwnd, GWL_EXSTYLE)
+    if enable:
+        style |= (WS_EX_TRANSPARENT | WS_EX_LAYERED)
+    else:
+        style &= ~WS_EX_TRANSPARENT
+    SetWindowLong(hwnd, GWL_EXSTYLE, style)
 
 class CheckUpdateThread(QThread):
     update_found = pyqtSignal(str, str, str)
@@ -157,9 +174,16 @@ class NoneCodeStudio(QMainWindow):
         self.settings = QSettings(ORG, APP_NAME)
         ws = self.settings.value("workspace", QDir.homePath())
         self.workspace = ws if isinstance(ws, str) and os.path.isdir(ws) else QDir.homePath()
+        self.is_click_through = False
+        shortcut_ct = QShortcut(QKeySequence("F9"), self)
+        shortcut_ct.activated.connect(self.toggle_click_through)
+        self.is_aerogel = self.settings.value("is_aerogel", True, type=bool)
+        self.watermark_enabled = self.settings.value("watermark_enabled", True, type=bool)
+        self._is_closing = False
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        if self.is_aerogel:
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
 
         saved_theme = self.settings.value("theme", theme.CURRENT_THEME_NAME)
         if saved_theme in theme.THEMES:
@@ -182,6 +206,10 @@ class NoneCodeStudio(QMainWindow):
         self.create_layout()
         self.overlay = Overlay(self)
         self.create_toolbar_and_menu()
+
+        self.watermark = MusicWatermark(self)
+        if not self.watermark_enabled:
+            self.watermark.hide()
 
         self.process = QProcess(self)
         self.process.readyReadStandardOutput.connect(self.handle_stdout)
@@ -211,7 +239,7 @@ class NoneCodeStudio(QMainWindow):
 
         self.title_icon = QLabel()
         self.title_icon.setPixmap(theme.make_logo(18))
-        
+
         self.title_lbl = QLabel(f"{APP_NAME} — {VERSION}")
         self.title_lbl.setStyleSheet(f"color: {T['BORDER_ACTIVE']}; font-size: 8.5pt; font-weight: 700;")
 
@@ -219,28 +247,21 @@ class NoneCodeStudio(QMainWindow):
         tb_layout.addWidget(self.title_lbl)
         tb_layout.addStretch()
 
-        btn_min = QToolButton()
-        btn_min.setObjectName("windowBtn")
-        btn_min.setText("—")
-        btn_min.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_min.clicked.connect(self.showMinimized)
+        self.btn_min = AnimatedWindowButton("—", self.title_bar, is_close=False)
+        self.btn_min.setToolTip("Minimize")
+        self.btn_min.clicked.connect(self.showMinimized)
 
-        self.btn_max = QToolButton()
-        self.btn_max.setObjectName("windowBtn")
-        btn_max_text = "❐" if self.isMaximized() else "□"
-        self.btn_max.setText(btn_max_text)
-        self.btn_max.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_max = AnimatedWindowButton("❐" if self.isMaximized() else "□", self.title_bar, is_close=False)
+        self.btn_max.setToolTip("Maximize / Restore")
         self.btn_max.clicked.connect(self.toggle_maximize)
 
-        btn_close = QToolButton()
-        btn_close.setObjectName("windowCloseBtn")
-        btn_close.setText("✕")
-        btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_close.clicked.connect(self.close)
+        self.btn_close = AnimatedWindowButton("✕", self.title_bar, is_close=True)
+        self.btn_close.setToolTip("Close")
+        self.btn_close.clicked.connect(self.close)
 
-        tb_layout.addWidget(btn_min)
+        tb_layout.addWidget(self.btn_min)
         tb_layout.addWidget(self.btn_max)
-        tb_layout.addWidget(btn_close)
+        tb_layout.addWidget(self.btn_close)
         root.addWidget(self.title_bar)
 
         self._drag_pos = None
@@ -400,7 +421,7 @@ class NoneCodeStudio(QMainWindow):
         sb.setSizeGripEnabled(False)
         self.lbl_status = QLabel("Ready")
         self.lbl_run = QLabel("")
-        
+
         self.lbl_update_badge = QLabel("")
         self.lbl_update_badge.setObjectName("statusPill")
         self.lbl_update_badge.setStyleSheet(f"background: {T['OK']}; color: #000000; font-weight: 700;")
@@ -420,6 +441,15 @@ class NoneCodeStudio(QMainWindow):
         sb.addPermanentWidget(self.lbl_lang)
         sb.addPermanentWidget(self.lbl_pos)
         sb.addPermanentWidget(self.lbl_enc)
+        
+    def toggle_click_through(self):
+        self.is_click_through = not self.is_click_through
+        hwnd = int(self.winId())
+        set_click_through(hwnd, self.is_click_through)
+        if self.is_click_through:
+            self.toast("Click-through Mode: ENABLED (Press F9 to toggle)", theme.T["WARN"])
+        else:
+            self.toast("Click-through Mode: DISABLED", theme.T["OK"])
 
     def title_mouse_press(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -439,6 +469,25 @@ class NoneCodeStudio(QMainWindow):
         else:
             self.showMaximized()
             self.btn_max.setText("❐")
+
+    def toggle_aerogel_mode(self):
+        self.is_aerogel = not self.is_aerogel
+        self.settings.setValue("is_aerogel", self.is_aerogel)
+        target_theme = "Aerogel Glass" if self.is_aerogel else "Solid Obsidian"
+        self.switch_theme(target_theme)
+        mode_name = "Aerogel Glass" if self.is_aerogel else "Solid Core"
+        self.toast(f"Mode changed: {mode_name}", theme.T["OK"])
+
+    def toggle_watermark_mode(self):
+        self.watermark_enabled = not self.watermark_enabled
+        self.settings.setValue("watermark_enabled", self.watermark_enabled)
+        if self.watermark_enabled:
+            self.watermark.show()
+            self.watermark.update_position()
+            self.toast("Watermark enabled", theme.T["OK"])
+        else:
+            self.watermark.hide()
+            self.toast("Watermark disabled", theme.T["WARN"])
 
     def switch_theme(self, name):
         if name in theme.THEMES:
@@ -464,11 +513,14 @@ class NoneCodeStudio(QMainWindow):
         self.addAction(a)
         return a
 
-    def _tool_btn(self, action, primary=False, danger=False):
+    def _tool_btn(self, action, primary=False, danger=False, text_beside=False):
         b = QToolButton()
         b.setDefaultAction(action)
         b.setIconSize(QSize(13, 13))
-        b.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        if text_beside:
+            b.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        else:
+            b.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         b.setCursor(Qt.CursorShape.PointingHandCursor)
         if primary:
             b.setObjectName("primary")
@@ -695,9 +747,11 @@ goto CLEANUP
         self.act_stop = self._act("Stop", "Shift+F5", self.stop_process, "stop", T["ERR"])
         self.act_stop.setEnabled(False)
         self.act_term = self._act("Terminal", "Ctrl+`", self.toggle_terminal)
+        self.act_aero = self._act("Glass / Solid", "F11", self.toggle_aerogel_mode, "glass")
+        self.act_wm = self._act("Toggle Watermark", "F10", self.toggle_watermark_mode, "music")
         self.act_venv = self._act("Env Manager…", "Ctrl+Shift+V", self.open_venv_dialog, "box")
         self.act_req = self._act("Install requirements.txt", "", self.install_selected_requirements)
-        
+
         self.act_check_update = self._act("Check for Updates…", "", self.check_github_update)
         self.act_about = self._act("About", "", self.show_about)
 
@@ -727,14 +781,18 @@ goto CLEANUP
 
         m_view = mb.addMenu("View")
         m_view.addAction(self.act_term)
+        m_view.addAction(self.act_aero)
+        m_view.addAction(self.act_wm)
 
         m_help = mb.addMenu("Help")
         m_help.addAction(self.act_check_update)
         m_help.addAction(self.act_about)
 
         tb = QToolBar("Main")
+        tb.setFixedHeight(38)
         tb.setMovable(False)
         self.addToolBar(tb)
+
         tb.addWidget(self._tool_btn(self.act_open_folder))
         tb.addWidget(self._tool_btn(self.act_clone))
         tb.addWidget(self._tool_btn(self.act_save))
@@ -742,6 +800,7 @@ goto CLEANUP
 
         self.cmb_py = QComboBox()
         self.cmb_py.setObjectName("runtimePill")
+        self.cmb_py.setMaximumWidth(135)
         self.cmb_py.setToolTip("Select Python Environment")
         self.cmb_py.activated.connect(self.on_interpreter_activated)
         tb.addWidget(self.cmb_py)
@@ -750,20 +809,23 @@ goto CLEANUP
 
         self.cmb_theme = QComboBox()
         self.cmb_theme.setObjectName("themeSelector")
+        self.cmb_theme.setMaximumWidth(135)
         self.cmb_theme.setToolTip("Select UI / Color Theme")
         for th_name in theme.THEMES:
             self.cmb_theme.addItem(th_name)
         self.cmb_theme.setCurrentText(theme.CURRENT_THEME_NAME)
         self.cmb_theme.currentTextChanged.connect(self.switch_theme)
         tb.addWidget(self.cmb_theme)
+        tb.addWidget(self._tool_btn(self.act_aero))
+        tb.addWidget(self._tool_btn(self.act_wm))
 
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         tb.addWidget(spacer)
 
         tb.addWidget(self._tool_btn(self.act_live_html))
-        tb.addWidget(self._tool_btn(self.act_run, primary=True))
-        tb.addWidget(self._tool_btn(self.act_stop, danger=True))
+        tb.addWidget(self._tool_btn(self.act_run, primary=True, text_beside=True))
+        tb.addWidget(self._tool_btn(self.act_stop, danger=True, text_beside=True))
 
     def open_html_preview(self):
         ed = self.current_editor()
@@ -803,6 +865,8 @@ goto CLEANUP
         super().resizeEvent(event)
         if hasattr(self, "overlay"):
             self.overlay.setGeometry(self.rect())
+        if hasattr(self, "watermark") and self.watermark.isVisible():
+            self.watermark.update_position()
 
     def toast(self, text, color=None):
         Toast(self, text, color or theme.T["ACCENT"])
@@ -1361,12 +1425,17 @@ goto CLEANUP
             f"<p style='color:{theme.T['MUTED']};margin-top:0;'>Official Distribution · Monolith Studio Engine</p>"
             "<p>• Minimalist desktop development studio.<br>"
             "• Integrated Git Clone, Environment Manager & Terminal.<br>"
+            "• Floating Dynamic Media Watermark (F10).<br>"
             "• Instant Browser HTML Live Preview (Ctrl+B).<br>"
             "• Zero-lag syntax highlighting for Python, C/C++, Rust, JS/TS, Batch, Shell.</p>"
             f"<p style='color:{theme.T['MUTED']};'>Author: <b>{CREDIT}</b></p>"
         )
 
     def closeEvent(self, event):
+        if self._is_closing:
+            event.accept()
+            return
+
         dirty = any(self.tab_widget.widget(i).isModified() for i in range(self.tab_widget.count()))
         if dirty:
             res = self.blurred(
@@ -1378,8 +1447,39 @@ goto CLEANUP
             if res != QMessageBox.StandardButton.Yes:
                 event.ignore()
                 return
+
+        event.ignore()
+        self._is_closing = True
+        self.settings.setValue("geometry", self.saveGeometry())
+
         if self.process.state() != QProcess.ProcessState.NotRunning:
             self.process.kill()
-            self.process.waitForFinished(1000)
-        self.settings.setValue("geometry", self.saveGeometry())
-        event.accept()
+            self.process.waitForFinished(800)
+
+        exit_group = QParallelAnimationGroup(self)
+
+        fade_anim = QPropertyAnimation(self, b"windowOpacity", self)
+        fade_anim.setDuration(240)
+        fade_anim.setStartValue(1.0)
+        fade_anim.setEndValue(0.0)
+        fade_anim.setEasingCurve(QEasingCurve.Type.OutQuad)
+        exit_group.addAnimation(fade_anim)
+
+        if not self.isMaximized():
+            cur_geom = self.geometry()
+            target_geom = QRect(
+                cur_geom.x() + int(cur_geom.width() * 0.04),
+                cur_geom.y() + int(cur_geom.height() * 0.04),
+                int(cur_geom.width() * 0.92),
+                int(cur_geom.height() * 0.92)
+            )
+            scale_anim = QPropertyAnimation(self, b"geometry", self)
+            scale_anim.setDuration(240)
+            scale_anim.setStartValue(cur_geom)
+            scale_anim.setEndValue(target_geom)
+            scale_anim.setEasingCurve(QEasingCurve.Type.InQuad)
+            exit_group.addAnimation(scale_anim)
+
+        exit_group.finished.connect(QApplication.instance().quit)
+        exit_group.start()
+        self._exit_anim = exit_group

@@ -1,3 +1,5 @@
+import os
+import subprocess
 from PyQt6.QtCore import (
     Qt, QTimer, QPoint, QPropertyAnimation, QParallelAnimationGroup,
     QEasingCurve, pyqtProperty
@@ -5,13 +7,76 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import QColor, QPainter
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QProgressBar,
-    QGraphicsOpacityEffect
+    QToolButton, QGraphicsOpacityEffect
 )
 import app_theme as theme
 
 
-def animate_widget_fade_in(widget, duration=220):
-    pass
+class AnimatedWindowButton(QToolButton):
+    def __init__(self, text, parent=None, is_close=False):
+        super().__init__(parent)
+        self.setText(text)
+        self._is_close = is_close
+        self._scale = 1.0
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedSize(46, 34)
+
+        if is_close:
+            self.setObjectName("windowCloseBtn")
+        else:
+            self.setObjectName("windowBtn")
+
+        self._anim = None
+
+    def get_scale(self):
+        return self._scale
+
+    def set_scale(self, val):
+        self._scale = float(val)
+        self.update()
+
+    scale = pyqtProperty(float, get_scale, set_scale)
+
+    def enterEvent(self, event):
+        self._animate_scale(1.18, 180, QEasingCurve.Type.OutBack)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._animate_scale(1.0, 160, QEasingCurve.Type.OutQuad)
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        self._animate_scale(0.88, 80, QEasingCurve.Type.InQuad)
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._animate_scale(1.12, 140, QEasingCurve.Type.OutBack)
+        super().mouseReleaseEvent(event)
+
+    def _animate_scale(self, target, duration, easing):
+        if self._anim is not None:
+            self._anim.stop()
+        anim = QPropertyAnimation(self, b"scale", self)
+        anim.setDuration(duration)
+        anim.setStartValue(self._scale)
+        anim.setEndValue(target)
+        anim.setEasingCurve(easing)
+        anim.start()
+        self._anim = anim
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+
+        cx = self.width() / 2.0
+        cy = self.height() / 2.0
+        painter.translate(cx, cy)
+        painter.scale(self._scale, self._scale)
+        painter.translate(-cx, -cy)
+
+        super().paintEvent(event)
+        painter.end()
 
 
 class Overlay(QWidget):
@@ -177,6 +242,70 @@ class Overlay(QWidget):
         anim.finished.connect(finished)
         anim.start()
         self._fade = anim
+
+
+class MusicWatermark(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("musicWatermark")
+        self.setStyleSheet(
+            f"QFrame#musicWatermark {{"
+            f"  background: {theme.T['SURFACE']};"
+            f"  border: 1px solid {theme.T['BORDER_ACTIVE']};"
+            f"  border-radius: 8px;"
+            f"}}"
+        )
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(10, 5, 12, 5)
+        lay.setSpacing(8)
+
+        self.icon_lbl = QLabel()
+        self.icon_lbl.setPixmap(theme.draw_vector_icon("music", theme.T["ACCENT"], 13))
+
+        self.text_lbl = QLabel("None Code Studio • Ready")
+        self.text_lbl.setStyleSheet(f"color: {theme.T['TEXT']}; font-size: 8pt; font-weight: 600; font-family: 'Segoe UI Variable Text';")
+
+        lay.addWidget(self.icon_lbl)
+        lay.addWidget(self.text_lbl)
+
+        self._opacity = QGraphicsOpacityEffect(self)
+        self._opacity.setOpacity(0.9)
+        self.setGraphicsEffect(self._opacity)
+
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self.poll_media)
+        self._timer.start(3000)
+        self.poll_media()
+
+    def poll_media(self):
+        title = ""
+        if os.name == "nt":
+            try:
+                cmd = 'powershell -NoProfile -Command "(Get-Process | Where-Object {$_.MainWindowTitle -ne \'\' -and ($_.ProcessName -match \'spotify|music|chrome|msedge|brave\')} | Select-Object -ExpandProperty MainWindowTitle -First 1)"'
+                res = subprocess.run(cmd, capture_output=True, text=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), timeout=1.5)
+                out = res.stdout.strip()
+                if out and out != theme.APP_NAME:
+                    title = out
+            except Exception:
+                pass
+
+        if title:
+            if len(title) > 34:
+                title = title[:31] + "…"
+            self.text_lbl.setText(f"♪  {title}")
+            self.icon_lbl.setPixmap(theme.draw_vector_icon("music", theme.T["OK"], 13))
+        else:
+            self.text_lbl.setText(f"None Code Studio  ·  {theme.VERSION}")
+            self.icon_lbl.setPixmap(theme.draw_vector_icon("music", theme.T["MUTED"], 13))
+        self.adjustSize()
+        self.update_position()
+
+    def update_position(self):
+        if self.parent():
+            p = self.parent()
+            margin_right = 20
+            margin_bottom = 32
+            self.move(p.width() - self.width() - margin_right, p.height() - self.height() - margin_bottom)
 
 
 class Toast(QFrame):

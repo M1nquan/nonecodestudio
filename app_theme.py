@@ -6,19 +6,19 @@ from PyQt6.QtGui import (
 
 ORG = "none"
 APP_NAME = "None Code Studio"
-APP_SUB = "v0.4b"
+APP_SUB = "v0.5b"
 BROWSE = "__browse__"
 CREDIT = "M1nquan"
-VERSION = "v0.4b"
+VERSION = "v0.5b"
 
 THEMES = {
-    "Aerogel Obsidian": {
-        "BG": "rgba(9, 10, 15, 0.75)",
-        "PANEL": "rgba(13, 14, 21, 0.70)",
+    "Aerogel Glass": {
+        "BG": "rgba(9, 10, 15, 0.76)",
+        "PANEL": "rgba(13, 14, 21, 0.72)",
         "EDITOR": "rgba(11, 12, 18, 0.65)",
-        "SURFACE": "rgba(19, 21, 32, 0.60)",
-        "SURFACE_HOVER": "rgba(26, 29, 46, 0.75)",
-        "BORDER": "rgba(40, 45, 68, 0.45)",
+        "SURFACE": "rgba(19, 21, 32, 0.62)",
+        "SURFACE_HOVER": "rgba(26, 29, 46, 0.78)",
+        "BORDER": "rgba(56, 189, 248, 0.35)",
         "BORDER_ACTIVE": "#38bdf8",
         "TEXT": "#e2e8f0",
         "MUTED": "#64748b",
@@ -30,13 +30,31 @@ THEMES = {
         "ERR": "#f43f5e",
         "WARN": "#fbbf24",
     },
-    "Cyber Neon": {
+    "Solid Obsidian": {
+        "BG": "#090a0f",
+        "PANEL": "#0d0e15",
+        "EDITOR": "#0b0c12",
+        "SURFACE": "#131520",
+        "SURFACE_HOVER": "#1a1d2e",
+        "BORDER": "#191c2b",
+        "BORDER_ACTIVE": "#38bdf8",
+        "TEXT": "#e2e8f0",
+        "MUTED": "#64748b",
+        "SUBTLE": "#334155",
+        "PRIMARY": "#f8fafc",
+        "PRIMARY_FG": "#090a0f",
+        "ACCENT": "#38bdf8",
+        "OK": "#10b981",
+        "ERR": "#f43f5e",
+        "WARN": "#fbbf24",
+    },
+    "Cyber Neon Glass": {
         "BG": "rgba(4, 5, 10, 0.78)",
         "PANEL": "rgba(7, 9, 19, 0.72)",
         "EDITOR": "rgba(5, 6, 13, 0.68)",
         "SURFACE": "rgba(13, 17, 36, 0.65)",
-        "SURFACE_HOVER": "rgba(23, 30, 61, 0.80)",
-        "BORDER": "rgba(26, 34, 74, 0.50)",
+        "SURFACE_HOVER": "rgba(23, 30, 61, 0.82)",
+        "BORDER": "rgba(0, 240, 255, 0.35)",
         "BORDER_ACTIVE": "#00f0ff",
         "TEXT": "#e0f2fe",
         "MUTED": "#7081b9",
@@ -48,45 +66,117 @@ THEMES = {
         "ERR": "#ff2a6d",
         "WARN": "#ffe600",
     },
-    "Hyper Violet": {
-        "BG": "rgba(7, 3, 15, 0.78)",
-        "PANEL": "rgba(12, 6, 26, 0.72)",
-        "EDITOR": "rgba(8, 4, 18, 0.68)",
-        "SURFACE": "rgba(23, 12, 48, 0.65)",
-        "SURFACE_HOVER": "rgba(39, 21, 82, 0.80)",
-        "BORDER": "rgba(47, 22, 97, 0.50)",
-        "BORDER_ACTIVE": "#bd00ff",
-        "TEXT": "#f5f3ff",
-        "MUTED": "#8b76bd",
-        "SUBTLE": "#42247a",
-        "PRIMARY": "#bd00ff",
-        "PRIMARY_FG": "#07030f",
-        "ACCENT": "#00f5ff",
-        "OK": "#10b981",
-        "ERR": "#ff0055",
-        "WARN": "#ffb703",
+    "Solid Monokai": {
+        "BG": "#221f22",
+        "PANEL": "#19181a",
+        "EDITOR": "#2d2a2e",
+        "SURFACE": "#3a373b",
+        "SURFACE_HOVER": "#4a474b",
+        "BORDER": "#19181a",
+        "BORDER_ACTIVE": "#ffd866",
+        "TEXT": "#fcfcfa",
+        "MUTED": "#727072",
+        "SUBTLE": "#403e41",
+        "PRIMARY": "#ffd866",
+        "PRIMARY_FG": "#221f22",
+        "ACCENT": "#a9dc76",
+        "OK": "#a9dc76",
+        "ERR": "#ff6188",
+        "WARN": "#fc9867",
     },
-    "Tokyo Night": {
-        "BG": "rgba(26, 27, 38, 0.75)",
-        "PANEL": "rgba(22, 22, 30, 0.70)",
-        "EDITOR": "rgba(26, 27, 38, 0.65)",
-        "SURFACE": "rgba(36, 40, 59, 0.60)",
-        "SURFACE_HOVER": "rgba(47, 53, 79, 0.75)",
-        "BORDER": "rgba(41, 46, 66, 0.50)",
-        "BORDER_ACTIVE": "#7aa2f7",
-        "TEXT": "#c0caf5",
-        "MUTED": "#787c99",
-        "SUBTLE": "#414868",
-        "PRIMARY": "#7aa2f7",
-        "PRIMARY_FG": "#15161e",
-        "ACCENT": "#7dcfff",
-        "OK": "#9ece6a",
-        "ERR": "#f7768e",
-        "WARN": "#e0af68",
+    "Aurora Glass": {
+        "BG": "rgba(8, 15, 25, 0.80)",
+        "PANEL": "rgba(12, 24, 38, 0.76)",
+        "EDITOR": "rgba(7, 18, 30, 0.72)",
+        "SURFACE": "rgba(22, 39, 57, 0.68)",
+        "SURFACE_HOVER": "rgba(31, 57, 76, 0.84)",
+        "BORDER": "rgba(94, 234, 212, 0.32)",
+        "BORDER_ACTIVE": "#5eead4",
+        "TEXT": "#e6f4f1",
+        "MUTED": "#8ba9ad",
+        "SUBTLE": "#38515c",
+        "PRIMARY": "#5eead4",
+        "PRIMARY_FG": "#081719",
+        "ACCENT": "#a78bfa",
+        "OK": "#34d399",
+        "ERR": "#fb7185",
+        "WARN": "#fbbf24",
+    },
+    "Dracula": {
+        "BG": "#282a36",
+        "PANEL": "#21222c",
+        "EDITOR": "#191a21",
+        "SURFACE": "#343746",
+        "SURFACE_HOVER": "#44475a",
+        "BORDER": "#44475a",
+        "BORDER_ACTIVE": "#bd93f9",
+        "TEXT": "#f8f8f2",
+        "MUTED": "#a0a4b8",
+        "SUBTLE": "#6272a4",
+        "PRIMARY": "#bd93f9",
+        "PRIMARY_FG": "#191a21",
+        "ACCENT": "#ff79c6",
+        "OK": "#50fa7b",
+        "ERR": "#ff5555",
+        "WARN": "#f1fa8c",
+    },
+    "Nord": {
+        "BG": "#2e3440",
+        "PANEL": "#272d38",
+        "EDITOR": "#242933",
+        "SURFACE": "#3b4252",
+        "SURFACE_HOVER": "#434c5e",
+        "BORDER": "#434c5e",
+        "BORDER_ACTIVE": "#88c0d0",
+        "TEXT": "#eceff4",
+        "MUTED": "#8892a4",
+        "SUBTLE": "#4c566a",
+        "PRIMARY": "#88c0d0",
+        "PRIMARY_FG": "#242933",
+        "ACCENT": "#b48ead",
+        "OK": "#a3be8c",
+        "ERR": "#bf616a",
+        "WARN": "#ebcb8b",
+    },
+    "Solarized Dark": {
+        "BG": "#002b36",
+        "PANEL": "#073642",
+        "EDITOR": "#00252e",
+        "SURFACE": "#0b3b46",
+        "SURFACE_HOVER": "#164a55",
+        "BORDER": "#24545d",
+        "BORDER_ACTIVE": "#2aa198",
+        "TEXT": "#eee8d5",
+        "MUTED": "#839496",
+        "SUBTLE": "#586e75",
+        "PRIMARY": "#2aa198",
+        "PRIMARY_FG": "#002b36",
+        "ACCENT": "#b58900",
+        "OK": "#859900",
+        "ERR": "#dc322f",
+        "WARN": "#cb4b16",
+    },
+    "Light Porcelain": {
+        "BG": "#f4f6fb",
+        "PANEL": "#ffffff",
+        "EDITOR": "#fafbff",
+        "SURFACE": "#e9edf5",
+        "SURFACE_HOVER": "#dce3ef",
+        "BORDER": "#d4dbe8",
+        "BORDER_ACTIVE": "#4f46e5",
+        "TEXT": "#1e293b",
+        "MUTED": "#64748b",
+        "SUBTLE": "#94a3b8",
+        "PRIMARY": "#4f46e5",
+        "PRIMARY_FG": "#ffffff",
+        "ACCENT": "#0e7490",
+        "OK": "#15803d",
+        "ERR": "#dc2626",
+        "WARN": "#b45309",
     }
 }
 
-CURRENT_THEME_NAME = "Aerogel Obsidian"
+CURRENT_THEME_NAME = "Aerogel Glass"
 T = dict(THEMES[CURRENT_THEME_NAME])
 
 EDITOR_PALETTE = [
@@ -124,7 +214,7 @@ QToolTip {
     font-size: 8.5pt;
 }
 QWidget#customTitleBar {
-    background: transparent;
+    background: @PANEL@;
     border-bottom: 1px solid @BORDER@;
     border-top-left-radius: 12px;
     border-top-right-radius: 12px;
@@ -132,22 +222,24 @@ QWidget#customTitleBar {
 QToolButton#windowBtn, QToolButton#windowCloseBtn {
     background: transparent;
     color: @MUTED@;
-    border: none;
-    padding: 0px 14px;
-    font-size: 9pt;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    margin: 2px 2px;
+    font-size: 10pt;
     font-weight: 700;
 }
 QToolButton#windowBtn:hover {
-    background: @SURFACE@;
-    color: @TEXT@;
+    background: @SURFACE_HOVER@;
+    color: @BORDER_ACTIVE@;
+    border: 1px solid @BORDER_ACTIVE@;
 }
 QToolButton#windowCloseBtn:hover {
     background: @ERR@;
     color: #ffffff;
-    border-top-right-radius: 11px;
+    border: 1px solid @ERR@;
 }
 QMenuBar {
-    background: transparent;
+    background: @PANEL@;
     color: @MUTED@;
     padding: 3px 6px;
     border-bottom: 1px solid @BORDER@;
@@ -183,7 +275,7 @@ QMenu::separator {
     margin: 4px 6px;
 }
 QToolBar {
-    background: transparent;
+    background: @PANEL@;
     border: none;
     border-bottom: 1px solid @BORDER@;
     padding: 4px 8px;
@@ -579,6 +671,15 @@ def draw_vector_icon(kind, color, size=14):
         p.drawLine(QPointF(s * 0.32, s * 0.42), QPointF(s * 0.45, s * 0.52))
         p.drawLine(QPointF(s * 0.45, s * 0.52), QPointF(s * 0.32, s * 0.62))
         p.drawLine(QPointF(s * 0.52, s * 0.62), QPointF(s * 0.66, s * 0.62))
+    elif kind == "glass":
+        p.drawRoundedRect(QRectF(s * 0.2, s * 0.2, s * 0.6, s * 0.6), 3.0, 3.0)
+        p.drawLine(QPointF(s * 0.3, s * 0.7), QPointF(s * 0.7, s * 0.3))
+    elif kind == "music":
+        p.drawEllipse(QPointF(s * 0.32, s * 0.68), s * 0.14, s * 0.12)
+        p.drawEllipse(QPointF(s * 0.68, s * 0.58), s * 0.14, s * 0.12)
+        p.drawLine(QPointF(s * 0.46, s * 0.68), QPointF(s * 0.46, s * 0.28))
+        p.drawLine(QPointF(s * 0.82, s * 0.58), QPointF(s * 0.82, s * 0.20))
+        p.drawLine(QPointF(s * 0.46, s * 0.28), QPointF(s * 0.82, s * 0.20))
     p.end()
     return pm
 
@@ -586,7 +687,7 @@ def vicon(kind, color=None, size=14):
     return QIcon(draw_vector_icon(kind, color or T["MUTED"], size))
 
 def make_style_assets():
-    base = os.path.join(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.TempLocation), "ncs_v04b_assets")
+    base = os.path.join(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.TempLocation), "ncs_v05b_assets")
     os.makedirs(base, exist_ok=True)
     assets = {
         "CLOSE_N": ("close", T["MUTED"], 12),

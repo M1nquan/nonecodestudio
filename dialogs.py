@@ -13,7 +13,7 @@ class AnimatedDialog(QDialog):
         super().showEvent(event)
         self.setWindowOpacity(0.0)
         anim = QPropertyAnimation(self, b"windowOpacity", self)
-        anim.setDuration(160)
+        anim.setDuration(240)
         anim.setStartValue(0.0)
         anim.setEndValue(1.0)
         anim.setEasingCurve(QEasingCurve.Type.OutCubic)
